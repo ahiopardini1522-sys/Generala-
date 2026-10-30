@@ -157,6 +157,14 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .sheet td.done.last::before{background:rgba(242,182,50,.24);border:2px solid var(--resaltador);box-shadow:0 0 0 3px rgba(242,182,50,.28)}
 .ink{position:relative;z-index:1;display:inline-block;font-size:21px;font-weight:700;color:var(--papel);transform:rotate(var(--r,0deg))}
 .sheet td.done.last .ink{color:#fff}
+.sheet td.done .cellbtn{z-index:2}
+.sheet td.done.rep::before{border:2px dashed #ffb347;background:rgba(255,179,71,.16)}
+.sheet td.done.rep::after{content:"=";position:absolute;top:3px;right:8px;z-index:1;font-size:13px;font-weight:800;line-height:1;color:#ffb347}
+.sheet td.done.rep.mine::before{animation:repPulse 1.6s ease-in-out infinite}
+@keyframes repPulse{50%{box-shadow:0 0 0 3px rgba(255,179,71,.4)}}
+.sheet td.done.cut::before{background:rgba(255,122,107,.16);border:1px solid rgba(255,122,107,.5)}
+.sheet td.done.cut .ink{opacity:.45}
+.tachado.over{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:68%;height:62%}
 .ghost{font-size:19px;font-weight:600;color:rgba(243,235,214,.58)}
 .ghost.zero{color:rgba(243,235,214,.26)}
 .cellbtn{position:absolute;inset:0;width:100%;height:100%;display:grid;place-items:center}
@@ -191,6 +199,7 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .rank .pos{font-family:var(--font-display);width:30px;font-size:18px}
 .rank .rn{flex:1;min-width:0;font-weight:700;font-size:19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank .pt{font-family:var(--font-display);font-size:24px;color:var(--tinta)}
+.rnote{font-size:15px;line-height:1.3;color:#5a3a00;background:rgba(242,182,50,.3);border-radius:10px;padding:8px 10px}
 .rbtns{display:flex;flex-direction:column;gap:10px;margin-top:2px}
 #modal{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center}
 .scrim{position:absolute;inset:0;background:rgba(5,14,17,.62)}
@@ -315,6 +324,16 @@ const isGone=(g,p)=>!!(g.gone&&g.gone[p]);
 const alive=g=>g.order.filter(p=>!isGone(g,p));
 const allDone=g=>alive(g).every(p=>filled(sheetOf(g,p))>=CATS.length);
 const activeOf=g=>g.order[g.turn];
+// Valores repetidos: cuando todos anotaron una casilla, los que tienen el mismo valor (mayor que 0) se tachan.
+function catComplete(g,k){const al=alive(g);return al.length>0&&al.every(p=>sheetOf(g,p)[k]!==undefined)}
+function repeatedIn(g,k){
+  const out=new Set();
+  if(!catComplete(g,k))return out;
+  const by={};
+  alive(g).forEach(p=>{const v=sheetOf(g,p)[k];if(v>0)(by[v]=by[v]||[]).push(p)});
+  Object.keys(by).forEach(v=>{if(by[v].length>1)by[v].forEach(p=>out.add(p))});
+  return out;
+}
 function nextTurn(g){
   const n=g.order.length;
   for(let s=1;s<=n;s++){
@@ -379,8 +398,75 @@ const ui={
   seenSeq:0,seenEvt:0,seenTurn:null,prevKeys:null,fresh:new Set(),freshT:0,
   hideResults:false,lastSheet:'',lastBar:'',lastOverlay:'',dieEls:[],confirmFn:null,stampT:0
 };
-const Net={status:'connecting',db:null,user:null,uid:null,canWrite:null,code:null,gref:null,writer:null,unsubG:null,unsubP:null,players:[]};
+const Net={status:'connecting',db:null,user:null,uid:null,canWrite:null,code:null,gref:null,writer:null,unsubG:null,unsubP:null,players:[],cuts:{},unsubC:null,cutQ:null};
 const hero={vals:[6,6,6,6,6]};
+
+// Tachados por repetido: en una sala cada uno guarda los suyos en su propio documento (así no se pisan entre celulares);
+// en un solo celular van dentro de la partida.
+function cutsOf(g,p){
+  if(ui.mode==='local')return (g.cuts&&g.cuts[p])||{};
+  const d=Net.cuts[p];
+  return (d&&d.n===(g.n||0)&&d.cut)?d.cut:{};
+}
+const isCut=(g,p,k)=>!!cutsOf(g,p)[k];
+function pointsOf(g,p){
+  const sh=sheetOf(g,p),ct=cutsOf(g,p);
+  return CATS.reduce((s,c)=>s+((sh[c.k]>0&&!ct[c.k])?sh[c.k]:0),0);
+}
+function canCut(g,p){
+  if(!g||g.status==='lobby'||g.endReason==='servida')return false;
+  if(ui.mode==='local')return true;
+  return !ui.spectator&&p===me.pid;
+}
+function pendingReps(g){
+  let n=0;
+  CATS.forEach(c=>{repeatedIn(g,c.k).forEach(p=>{
+    if(isCut(g,p,c.k))return;
+    if(ui.mode==='online'&&p!==me.pid)return;
+    n++;
+  })});
+  return n;
+}
+function winnersNow(g){
+  if(g.endReason==='servida')return g.winners||[];
+  const al=alive(g);let best=-1;
+  al.forEach(p=>{best=Math.max(best,pointsOf(g,p))});
+  return al.filter(p=>pointsOf(g,p)===best);
+}
+
+// Sonido de dados: se genera en el celular, no hay archivos.
+const Sound={
+  ctx:null,noise:null,on:store.get('sound')!=='off',
+  unlock(){
+    try{
+      if(!this.ctx){const AC=window.AudioContext||window.webkitAudioContext;if(!AC)return;this.ctx=new AC()}
+      if(this.ctx.state==='suspended'&&this.ctx.resume){const r=this.ctx.resume();if(r&&r.catch)r.catch(()=>{})}
+    }catch(e){}
+  },
+  buffer(){
+    if(this.noise)return this.noise;
+    const c=this.ctx,b=c.createBuffer(1,c.sampleRate,c.sampleRate),d=b.getChannelData(0);
+    for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+    return (this.noise=b);
+  },
+  roll(n){
+    if(!this.on)return;
+    try{
+      this.unlock();
+      const c=this.ctx;
+      if(!c||c.state==='closed')return;
+      const out=c.createGain();out.gain.value=0.6;out.connect(c.destination);
+      const t0=c.currentTime+0.01;
+      const thump=(t,f,g,d)=>{const o=c.createOscillator(),e=c.createGain();o.type='sine';o.frequency.setValueAtTime(f*1.7,t);o.frequency.exponentialRampToValueAtTime(f,t+d);e.gain.setValueAtTime(g,t);e.gain.exponentialRampToValueAtTime(0.0001,t+d);o.connect(e);e.connect(out);o.start(t);o.stop(t+d+0.02)};
+      const hit=(t,f,g)=>{const s=c.createBufferSource(),bp=c.createBiquadFilter(),e=c.createGain();s.buffer=this.buffer();bp.type='bandpass';bp.frequency.value=f;bp.Q.value=1.1;e.gain.setValueAtTime(g,t);e.gain.exponentialRampToValueAtTime(0.0001,t+0.05);s.connect(bp);bp.connect(e);e.connect(out);s.start(t,Math.random()*0.8,0.07);s.stop(t+0.07)};
+      thump(t0,130,0.3,0.1);
+      const hits=Math.round(3+Math.max(1,Math.min(5,n||1))*1.6);
+      let t=t0+0.05;
+      for(let i=0;i<hits;i++){t+=0.03+Math.random()*0.04;hit(t,1500+Math.random()*2800,0.12+Math.random()*0.2)}
+      thump(t+0.04,95,0.28,0.13);hit(t+0.04,900,0.25);
+    }catch(e){}
+  }
+};
 
 const activePid=()=>(G&&G.status==='playing')?G.order[G.turn]:null;
 function canAct(){
@@ -396,6 +482,8 @@ const ICON={
   help:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1.9-1.1 1.7M12 16.8h.01"/></svg>',
   back:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
   crown:'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>',
+  soundOn:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a8 8 0 0 1 0 11"/></svg>',
+  soundOff:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9.5v5h3.5L12 18.5v-13L7.5 9.5H4z" fill="currentColor"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></svg>',
   copy:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>'
 };
 const DIE_INNER='<i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>';
@@ -417,7 +505,9 @@ const RULES_HTML=`
 <tr><td>Doble</td><td>Otra generala cuando ya anotaste 50 en Generala. <b>100</b></td></tr>
 </table>
 <h3>Servida</h3>
-<p>Si Escalera, Full o Póker salen en la <b>primera tirada</b> valen 5 más: 25, 35 y 45. Una generala servida gana la partida al instante, o vale 60 si se eligió esa variante.</p>`;
+<p>Si Escalera, Full o Póker salen en la <b>primera tirada</b> valen 5 más: 25, 35 y 45. Una generala servida gana la partida al instante, o vale 60 si se eligió esa variante.</p>
+<h3>Valores repetidos</h3>
+<p>Cuando todos anotaron una casilla, los que tienen <b>el mismo valor</b> se tachan y no suman: dos escaleras comunes, dos generalas comunes o dos 12 en el 4. Una servida y una común valen distinto, así que no se tachan. Los repetidos se marcan con un borde naranja y cada uno toca el suyo para tacharlo. Si te equivocás, tocalo de nuevo.</p>`;
 
 const INSTALL_HTML=`
 <h3>En Android (Chrome)</h3>
@@ -461,13 +551,14 @@ function tumble(el,getFinal){
   let t=0;
   const iv=setInterval(()=>{
     if(t++>=7){clearInterval(iv);done()}
-    else setFace(el,1+randInt(6));
+    else setFace(el,1+Math.floor(Math.random()*6)); // solo adorno: no usa el azar de los dados
   },70);
 }
 function heroRoll(){
   const els=$$('#hero .die');if(!els.length)return;
   hero.vals=hero.vals.map(()=>rollDie());
   els.forEach((el,i)=>tumble(el,()=>hero.vals[i]));
+  Sound.roll(5);
 }
 function showStamp(text){
   const b=$('#stampbox');if(!b)return;
@@ -637,7 +728,9 @@ function mountGame(){
   <section class="screen game" aria-label="Partida">
     <div class="gtop">
       <button class="icon" data-act="menu" aria-label="Menú">${ICON.menu}</button>
+      <span class="icon" aria-hidden="true"></span>
       <div class="gt"><b id="gtTitle"></b><small id="gtRound"></small></div>
+      <button class="icon" id="btnSound" data-act="sound"></button>
       <button class="icon" data-act="rules" aria-label="Cómo se juega">${ICON.help}</button>
     </div>
     <div class="turnbar" aria-live="polite"><i class="dot" id="turnDot"></i><span id="turnText"></span><span class="rt" id="rollText"></span></div>
@@ -649,6 +742,19 @@ function mountGame(){
     <div class="bar"><p class="hint" id="hint"></p><div class="barrow" id="barrow"></div></div>
   </section>`;
   ui.dieEls=$$('#dice .die');ui.lastSheet='';ui.lastBar='';
+  syncSoundBtn();
+}
+function syncSoundBtn(){
+  const b=$('#btnSound');if(!b)return;
+  b.innerHTML=Sound.on?ICON.soundOn:ICON.soundOff;
+  b.setAttribute('aria-label',Sound.on?'Silenciar el sonido':'Activar el sonido');
+  b.title=Sound.on?'Silenciar':'Activar el sonido';
+}
+function toggleSound(){
+  Sound.on=!Sound.on;
+  store.set('sound',Sound.on?'on':'off');
+  syncSoundBtn();
+  if(Sound.on)Sound.roll(2);
 }
 function nameOf(p){return (G&&G.names&&G.names[p])||'?'}
 function updateGame(){
@@ -697,10 +803,12 @@ function updateDice(){
     ui.seenSeq=g.seq||0;
     clearStamp();
     if(has){
+      let rolled=0;
       els.forEach((el,i)=>{
         const kept=(g.roll||0)>1&&g.held&&g.held[i];
-        if(!kept)tumble(el,()=>(G&&G.dice&&G.dice[i])||0);
+        if(!kept){rolled++;tumble(el,()=>(G&&G.dice&&G.dice[i])||0)}
       });
+      Sound.roll(rolled);
       maybeStamp();
     }
   }
@@ -735,6 +843,7 @@ function hintHTML(){
 function sheetHTML(){
   const g=G,act=activePid(),mine=canAct();
   const pot=mine?potentials(g.dice||[],g.roll||0,sheetOf(g,act),g.opts||{}):{};
+  const reps={};CATS.forEach(c=>{reps[c.k]=repeatedIn(g,c.k)});
   let h=`<colgroup><col style="width:84px">${g.order.map(()=>'<col>').join('')}</colgroup>`;
   h+='<thead><tr><th class="lab" scope="col"><span class="sr">Casilla</span></th>';
   g.order.forEach((p,i)=>{
@@ -751,9 +860,17 @@ function sheetHTML(){
         const fresh=ui.fresh.has(p+':'+c.k)?' fresh':'';
         const rot=((hash(p+c.k)%7)-3)*0.9;
         const last=(g.evt&&g.evt.pid===p&&g.evt.k===c.k)?' last':'';
-        h+=`<td class="${cls}done${fresh}${last}${v>0?'':' cruz'}">`+(v>0
-          ?`<span class="ink" style="--r:${rot.toFixed(1)}deg">${v}</span>`
-          :'<svg class="tachado" viewBox="0 0 40 24" aria-hidden="true"><path d="M4 19C14 15 25 9 36 4"/></svg><span class="sr">tachado</span>')+'</td>';
+        const rp=v>0&&reps[c.k].has(p),cut=rp&&isCut(g,p,c.k),can=rp&&canCut(g,p);
+        const flags=`${v>0?'':' cruz'}${rp&&!cut?' rep':''}${cut?' cut':''}${can&&!cut?' mine':''}`;
+        let inner;
+        if(v>0){
+          inner=`<span class="ink" style="--r:${rot.toFixed(1)}deg">${v}</span>`+(cut?'<svg class="tachado over" viewBox="0 0 40 24" aria-hidden="true"><path d="M4 19C14 15 25 9 36 4"/></svg>':'');
+          if(can){
+            const lab=cut?`Recuperar el ${v} de ${c.n}`:`Tachar el ${v} de ${c.n}: está repetido`;
+            inner+=`<button class="cellbtn" data-act="cut" data-p="${esc(p)}" data-k="${c.k}" aria-label="${esc(lab)}"></button>`;
+          }
+        }else inner='<svg class="tachado" viewBox="0 0 40 24" aria-hidden="true"><path d="M4 19C14 15 25 9 36 4"/></svg><span class="sr">tachado</span>';
+        h+=`<td class="${cls}done${fresh}${last}${flags}">${inner}</td>`;
       }else if(isAct&&mine&&pot[c.k]!==undefined){
         const pv=pot[c.k],sel=ui.selected===c.k;
         const label=(pv>0?'Anotar '+pv:'Tachar')+' en '+c.n;
@@ -762,7 +879,7 @@ function sheetHTML(){
     });
     h+='</tr>';
   });
-  h+='<tr class="tot"><th scope="row" class="lab">Total</th>'+g.order.map(p=>`<td class="${p===act?'act':''}${isGone(g,p)?' gone':''}">${total(sheetOf(g,p))}</td>`).join('')+'</tr></tbody>';
+  h+='<tr class="tot"><th scope="row" class="lab">Total</th>'+g.order.map(p=>`<td class="${p===act?'act':''}${isGone(g,p)?' gone':''}">${pointsOf(g,p)}</td>`).join('')+'</tr></tbody>';
   return h;
 }
 function barHTML(){
@@ -788,9 +905,11 @@ function barHTML(){
 
 /* ---- resultados ---- */
 function resultsHTML(){
-  const rows=G.order.map((p,i)=>({p,i,t:total(sheetOf(G,p)),gone:isGone(G,p)})).sort((a,b)=>(a.gone-b.gone)||(b.t-a.t)||(a.i-b.i));
-  const win=new Set(G.winners||[]);
-  const wn=(G.winners||[]).map(p=>esc(nameOf(p)));
+  const rows=G.order.map((p,i)=>({p,i,t:pointsOf(G,p),gone:isGone(G,p)})).sort((a,b)=>(a.gone-b.gone)||(b.t-a.t)||(a.i-b.i));
+  const winners=winnersNow(G);
+  const win=new Set(winners);
+  const wn=winners.map(p=>esc(nameOf(p)));
+  const pend=G.endReason==='servida'?0:pendingReps(G);
   let title;
   if(G.endReason==='servida')title=`¡Generala servida!<br>Ganó ${wn[0]}`;
   else if(wn.length===1)title=`Ganó ${wn[0]}`;
@@ -799,6 +918,7 @@ function resultsHTML(){
   return `<div class="result" role="dialog" aria-modal="true" aria-labelledby="rtt">
     <p class="kicker">Fin de la partida</p>
     <h2 id="rtt">${title}</h2>
+    ${pend?`<p class="rnote">Hay ${pend} valor${pend>1?'es':''} repetido${pend>1?'s':''} sin tachar. Tocá “Ver la planilla” para tacharlo${pend>1?'s':''}.</p>`:''}
     <ol class="rank">${rows.map(r=>{
       const pos=r.gone?'–':(1+rows.filter(x=>!x.gone&&x.t>r.t).length)+'º';
       return `<li class="${win.has(r.p)?'win':''}"><span class="pos">${pos}</span><span class="rn">${esc(nameOf(r.p))}${r.p===me.pid&&ui.mode==='online'?' (vos)':''}${r.gone?' · se fue':''}</span><span class="pt">${r.t}</span></li>`;
@@ -852,8 +972,15 @@ function afterGameChange(prev){
   const en=(g.evt&&g.evt.n)||0;
   if(en>ui.seenEvt){
     ui.seenEvt=en;
-    if(ui.mode==='online'&&g.evt.pid!==me.pid)toast(evtText(g));
+    const e=g.evt,reps=e.k?repeatedIn(g,e.k):new Set(),c=CAT[e.k];
+    let msg=(ui.mode==='online'&&e.pid!==me.pid)?evtText(g):'';
+    if(reps.size>0&&c){
+      if(ui.mode==='local')msg='Repetido en '+c.n+': tocá tu valor para tacharlo.';
+      else if(reps.has(me.pid))msg=(msg?msg+'. ':'')+'Tu valor de '+c.n+' está repetido: tocalo para tacharlo.';
+    }
+    if(msg)toast(msg,4200);
   }
+  startCutsSub();
 }
 function sendPatch(patch){
   if(!patch||!G)return;
@@ -896,6 +1023,18 @@ function doScore(){
   if(!patch)return;
   ui.selected=null;ui.heldDirty=false;clearTimeout(ui.heldTimer);ui.busyUntil=0;
   sendPatch(patch);
+}
+function toggleCut(p,k){
+  if(!G||!canCut(G,p)||!repeatedIn(G,k).has(p))return;
+  const now=!isCut(G,p,k);
+  if(ui.mode==='local'){sendPatch({cuts:{[p]:{[k]:now}}});return}
+  if(!Net.db||!Net.code)return;
+  const mine=Object.assign({},cutsOf(G,p));mine[k]=now;
+  const doc={n:G.n||0,cut:mine};
+  Net.cuts=Object.assign({},Net.cuts,{[p]:doc});
+  render();
+  const ref=Net.db.doc(`games/${Net.code}/cuts/${p}`);
+  Net.cutQ=(Net.cutQ||Promise.resolve()).then(()=>ref.set(doc)).catch(netError);
 }
 function playAgain(){
   if(!G||G.status!=='finished')return;
@@ -1036,9 +1175,18 @@ function startPlayersSub(){
   },()=>{});
 }
 function stopPlayersSub(){if(Net.unsubP){Net.unsubP();Net.unsubP=null}}
+function startCutsSub(){
+  if(Net.unsubC||!Net.db||!Net.code||ui.mode!=='online')return;
+  Net.unsubC=Net.db.collection(`games/${Net.code}/cuts`).onSnapshot(qs=>{
+    const m={};qs.docs.forEach(d=>{m[d.id]=d.data()});
+    Net.cuts=m;
+    if(ui.screen==='game')render();
+  },()=>{});
+}
+function stopCutsSub(){if(Net.unsubC){Net.unsubC();Net.unsubC=null}Net.cuts={}}
 function unsubscribe(){
   if(Net.unsubG){Net.unsubG();Net.unsubG=null}
-  stopPlayersSub();Net.writer=null;Net.gref=null;
+  stopPlayersSub();stopCutsSub();Net.writer=null;Net.gref=null;Net.cutQ=null;
 }
 function onGame(snap){
   setBusy(false);
@@ -1158,6 +1306,8 @@ const ACT={
   hold(el){toggleHold(+el.dataset.i)},
   pick(el){pickCell(el.dataset.k)},
   score(){doScore()},
+  cut(el){toggleCut(el.dataset.p,el.dataset.k)},
+  sound(){toggleSound()},
   menu(){openMenu()},
   rules(){openModal('Cómo se juega',RULES_HTML)},
   leave(){askLeave()},
@@ -1174,6 +1324,7 @@ document.addEventListener('click',e=>{
   const fn=ACT[el.dataset.act];
   if(fn)fn(el,e);
 });
+document.addEventListener('pointerdown',()=>{if(Sound.on)Sound.unlock()},{passive:true});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').hidden)closeModal()});
 document.addEventListener('input',e=>{
   const t=e.target;
@@ -1208,8 +1359,8 @@ if(hot&&typeof hot.ready==='function')hot.ready(start);
 else start((hot&&hot.data)||{});
 
 // ganchos para pruebas
-window.__G={MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
-  state:()=>({G,me:{pid:me.pid,name:me.name},screen:ui.screen,mode:ui.mode,selected:ui.selected,spectator:ui.spectator,net:{status:Net.status,code:Net.code,canWrite:Net.canWrite,players:Net.players}})};
+window.__G={repeatedIn,pointsOf,catComplete,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
+  state:()=>({G,me:{pid:me.pid,name:me.name},screen:ui.screen,mode:ui.mode,selected:ui.selected,spectator:ui.spectator,net:{status:Net.status,code:Net.code,canWrite:Net.canWrite,players:Net.players,cuts:Net.cuts}})};
 })();
 </script>
 </body>
