@@ -617,6 +617,12 @@
   window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferred = e; window.__renderInstall(); });
   window.addEventListener('appinstalled', () => { deferred = null; window.__renderInstall(); });
   if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.__GNRL_NO_SW) {
+    // Cuando se activa una versión nueva de la app, el juego decide si recarga o avisa.
+    let hadController = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadController) { hadController = true; return; }
+      if (window.__onNewVersion) window.__onNewVersion();
+    });
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   }
 

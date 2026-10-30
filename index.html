@@ -25,6 +25,9 @@
   --marcador:#c63a2e;
   --resaltador:#f2b632;
   --carbon:#1a1a1f;
+  --hoja:#14303a;
+  --hoja-2:#0e242b;
+  --linea:rgba(243,235,214,.14);
   --font-display:'Alfa Slab One','Rockwell','Georgia',serif;
   --font-body:'Barlow Semi Condensed','Arial Narrow','Roboto Condensed',system-ui,sans-serif;
   color-scheme:dark;
@@ -111,7 +114,7 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .turnbar b{font-weight:700}
 #turnText{white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .turnbar .rt{margin-left:auto;white-space:nowrap;font-size:15px;font-weight:500;color:rgba(243,235,214,.7)}
-.tray{position:relative;margin:0 10px;padding:14px 12px 22px;border-radius:18px;background:linear-gradient(180deg,rgba(0,0,0,.34),rgba(0,0,0,.18));box-shadow:inset 0 3px 8px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.05)}
+.tray{position:relative;margin:0 10px 8px;padding:14px 12px 22px;border-radius:18px;background:linear-gradient(180deg,rgba(0,0,0,.34),rgba(0,0,0,.18));box-shadow:inset 0 3px 8px rgba(0,0,0,.45),inset 0 0 0 1px rgba(255,255,255,.05)}
 .dice{display:grid;grid-template-columns:repeat(5,1fr);gap:clamp(6px,2.4vw,12px)}
 
 /* dados */
@@ -130,42 +133,46 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .die.held::after{content:"";position:absolute;left:28%;right:28%;bottom:-17px;height:5px;border-radius:3px;background:var(--resaltador)}
 .die.rolling{animation:tumble .5s ease-in-out}
 @keyframes tumble{0%{transform:translateY(0) rotate(0)}30%{transform:translateY(-16px) rotate(130deg)}62%{transform:translateY(0) rotate(250deg)}82%{transform:translateY(-5px) rotate(335deg)}100%{transform:translateY(0) rotate(360deg)}}
-.stampbox{position:absolute;left:0;right:0;bottom:-22px;display:flex;justify-content:center;pointer-events:none;z-index:4}
+.stampbox{position:absolute;left:0;right:0;top:-26px;display:flex;justify-content:center;pointer-events:none;z-index:4}
 .stampbox span{font-family:var(--font-display);font-size:clamp(18px,5.6vw,24px);line-height:1;color:var(--marcador);background:rgba(251,246,230,.96);border:3px solid var(--marcador);border-radius:8px;padding:5px 12px;transform:rotate(-4deg);box-shadow:0 4px 0 rgba(0,0,0,.25);animation:slam .45s cubic-bezier(.2,1.5,.4,1) both;text-align:center;white-space:nowrap}
 @keyframes slam{from{opacity:0;transform:rotate(-4deg) scale(2)}to{opacity:1;transform:rotate(-4deg) scale(1)}}
 
-/* planilla */
-.sheetwrap{flex:1;min-height:0;overflow:auto;margin:10px 10px 0;border-radius:12px 12px 0 0;background:var(--papel);color:var(--carbon);box-shadow:0 -1px 0 rgba(255,255,255,.2),0 8px 22px rgba(0,0,0,.35);overscroll-behavior:contain}
-.sheet{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;font-variant-numeric:tabular-nums}
-.sheet th,.sheet td{height:38px;padding:0;text-align:center;position:relative;border-bottom:1px solid rgba(29,58,138,.2);border-right:1px solid rgba(29,58,138,.12);font-weight:600}
-.sheet thead th{position:sticky;top:0;z-index:3;height:42px;background:#e8dec2;border-top:4px solid var(--pc,#999);border-bottom:2px solid rgba(29,58,138,.35);line-height:1.05}
-.sheet th.lab{position:sticky;left:0;z-index:2;text-align:left;padding:0 6px 0 9px;background:#ece2c8;border-right:2px solid rgba(198,58,46,.55)}
+/* planilla: anotador oscuro, como pizarra con tiza */
+.sheetwrap{flex:1;min-height:0;overflow:auto;margin:6px 10px 10px;border-radius:12px;background:var(--hoja);color:var(--papel);box-shadow:0 0 0 1px rgba(243,235,214,.12),0 8px 22px rgba(0,0,0,.4);overscroll-behavior:contain}
+.sheet{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;height:100%;font-variant-numeric:tabular-nums}
+.sheet th,.sheet td{height:38px;padding:0;text-align:center;position:relative;border-bottom:1px solid var(--linea);border-right:1px solid rgba(243,235,214,.07);font-weight:600}
+.sheet thead th{position:sticky;top:0;z-index:3;height:42px;background:var(--hoja-2);border-top:4px solid var(--pc,#999);border-bottom:2px solid rgba(243,235,214,.22);line-height:1.05}
+.sheet th.lab{position:sticky;left:0;z-index:2;text-align:left;padding:0 6px 0 9px;background:var(--hoja-2);border-right:2px solid rgba(255,122,107,.5)}
 .sheet thead th.lab{z-index:5;border-top-color:transparent}
 .sheet th.lab .lt{display:block;font-weight:700;font-size:16px;line-height:1}
-.sheet th.lab .lt.num{font-family:var(--font-display);font-weight:400;font-size:20px;color:var(--tinta)}
+.sheet th.lab .lt.num{font-family:var(--font-display);font-weight:400;font-size:20px;color:var(--papel)}
 .sheet th.lab small{display:block;font-size:11px;font-weight:500;opacity:.6;margin-top:2px}
-.sheet td.act{background:rgba(242,182,50,.3)}
-.sheet thead th.act{background:#f6d26a}
+.sheet td.act{background:rgba(242,182,50,.13)}
+.sheet thead th.act{background:var(--resaltador);color:var(--carbon)}
 .nm{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 3px;font-weight:700;font-size:15px}
 .nm small{display:block;font-size:10px;font-weight:600;opacity:.6;text-transform:uppercase;letter-spacing:.06em}
 .sheet td.gone,.sheet th.gone{opacity:.45}
-.ink{display:inline-block;font-size:21px;font-weight:700;color:var(--tinta);transform:rotate(var(--r,0deg))}
-.ghost{font-size:19px;font-weight:600;color:rgba(29,58,138,.5)}
-.ghost.zero{color:rgba(26,26,31,.28)}
+.sheet td.done::before{content:"";position:absolute;inset:4px 5px;border-radius:9px;background:rgba(243,235,214,.10);border:1px solid rgba(243,235,214,.24)}
+.sheet td.done.cruz::before{background:rgba(255,122,107,.14);border-color:rgba(255,122,107,.4)}
+.sheet td.done.last::before{background:rgba(242,182,50,.24);border:2px solid var(--resaltador);box-shadow:0 0 0 3px rgba(242,182,50,.28)}
+.ink{position:relative;z-index:1;display:inline-block;font-size:21px;font-weight:700;color:var(--papel);transform:rotate(var(--r,0deg))}
+.sheet td.done.last .ink{color:#fff}
+.ghost{font-size:19px;font-weight:600;color:rgba(243,235,214,.58)}
+.ghost.zero{color:rgba(243,235,214,.26)}
 .cellbtn{position:absolute;inset:0;width:100%;height:100%;display:grid;place-items:center}
-.sheet td.pick{background:#fff3bf;box-shadow:inset 0 0 0 3px var(--resaltador)}
-.sheet td.pick .ghost{color:var(--tinta);font-weight:700}
-.sheet tr.sel th.lab{background:#fff0b3}
-.tachado{width:68%;height:62%;overflow:visible;vertical-align:middle}
-.tachado path{fill:none;stroke:var(--marcador);stroke-width:3.4;stroke-linecap:round}
+.sheet td.pick{background:rgba(242,182,50,.3);box-shadow:inset 0 0 0 3px var(--resaltador)}
+.sheet td.pick .ghost{color:#fff;font-weight:700}
+.sheet tr.sel th.lab{background:#554f26}
+.tachado{position:relative;z-index:1;width:68%;height:62%;overflow:visible;vertical-align:middle}
+.tachado path{fill:none;stroke:#ff7a6b;stroke-width:3.4;stroke-linecap:round}
 .fresh .ink{animation:inkin .38s ease-out}
 .fresh .tachado path{stroke-dasharray:46;stroke-dashoffset:46;animation:draw .36s .05s ease-out forwards}
 @keyframes inkin{from{opacity:0;transform:scale(1.7) rotate(var(--r,0deg))}to{opacity:1;transform:scale(1) rotate(var(--r,0deg))}}
 @keyframes draw{to{stroke-dashoffset:0}}
-.sheet tr.tot>*{position:sticky;bottom:0;z-index:2;height:46px;background:#e8dec2;border-top:2px solid var(--tinta);border-bottom:0}
-.sheet tr.tot th.lab{z-index:5;font-family:var(--font-display);font-weight:400;font-size:17px;color:var(--tinta);vertical-align:middle}
-.sheet tr.tot td{font-family:var(--font-display);font-weight:400;font-size:22px;color:var(--tinta)}
-.sheet tr.tot td.act{background:#f6d26a}
+.sheet tr.tot>*{position:sticky;bottom:0;z-index:2;height:46px;background:var(--hoja-2);border-top:2px solid rgba(243,235,214,.35);border-bottom:0}
+.sheet tr.tot th.lab{z-index:5;font-family:var(--font-display);font-weight:400;font-size:17px;color:var(--papel);vertical-align:middle}
+.sheet tr.tot td{font-family:var(--font-display);font-weight:400;font-size:22px;color:var(--papel)}
+.sheet tr.tot td.act{background:var(--resaltador);color:var(--carbon)}
 
 /* barra de acción */
 .bar{padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(#0d1f23,#0a181c);border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:8px}
@@ -426,6 +433,10 @@ function toast(msg,ms){
   clearTimeout(toastT);toastT=setTimeout(()=>t.classList.remove('on'),ms||2800);
 }
 window.__toast=toast;
+window.__onNewVersion=function(){
+  if(ui.screen==='home'&&!ui.busy)location.reload();
+  else toast('Hay una versión nueva de la app. Se usa la próxima vez que la abras.',4200);
+};
 function openModal(title,html){
   const m=$('#modal');
   m.innerHTML=`<div class="scrim" data-act="close-modal"></div><div class="panel" role="dialog" aria-modal="true" aria-labelledby="mt"><div class="grab"></div><h2 id="mt" class="mt">${esc(title)}</h2><div>${html}</div></div>`;
@@ -630,11 +641,11 @@ function mountGame(){
       <button class="icon" data-act="rules" aria-label="Cómo se juega">${ICON.help}</button>
     </div>
     <div class="turnbar" aria-live="polite"><i class="dot" id="turnDot"></i><span id="turnText"></span><span class="rt" id="rollText"></span></div>
+    <div class="sheetwrap" id="sheetwrap"><table class="sheet" id="sheet"></table></div>
     <div class="tray">
       <div class="dice" id="dice">${[0,1,2,3,4].map(i=>`<button class="die empty" data-act="hold" data-i="${i}" data-v="0" aria-pressed="false" aria-label="Dado ${i+1}, sin tirar">${DIE_INNER}</button>`).join('')}</div>
       <div class="stampbox" id="stampbox"></div>
     </div>
-    <div class="sheetwrap" id="sheetwrap"><table class="sheet" id="sheet"></table></div>
     <div class="bar"><p class="hint" id="hint"></p><div class="barrow" id="barrow"></div></div>
   </section>`;
   ui.dieEls=$$('#dice .die');ui.lastSheet='';ui.lastBar='';
@@ -739,7 +750,8 @@ function sheetHTML(){
       if(v!==undefined){
         const fresh=ui.fresh.has(p+':'+c.k)?' fresh':'';
         const rot=((hash(p+c.k)%7)-3)*0.9;
-        h+=`<td class="${cls}done${fresh}">`+(v>0
+        const last=(g.evt&&g.evt.pid===p&&g.evt.k===c.k)?' last':'';
+        h+=`<td class="${cls}done${fresh}${last}${v>0?'':' cruz'}">`+(v>0
           ?`<span class="ink" style="--r:${rot.toFixed(1)}deg">${v}</span>`
           :'<svg class="tachado" viewBox="0 0 40 24" aria-hidden="true"><path d="M4 19C14 15 25 9 36 4"/></svg><span class="sr">tachado</span>')+'</td>';
       }else if(isAct&&mine&&pot[c.k]!==undefined){
