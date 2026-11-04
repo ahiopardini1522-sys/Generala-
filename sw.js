@@ -1,5 +1,5 @@
 /* Service worker de la Generala: deja la app lista para abrirse sin conexión. */
-const VERSION = 'gnrl-ceceadb2f2';
+const VERSION = 'gnrl-d040517d52';
 const CORE = ['./', 'index.html', 'net.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-64.png'];
 
@@ -13,6 +13,15 @@ self.addEventListener('activate', (e) => {
       .then((keys) => Promise.all(keys.filter((k) => k !== VERSION).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// Al tocar el aviso de turno se abre (o se trae al frente) la app.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+    for (const c of list) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow('./');
+  }));
 });
 
 // Responde con lo guardado y, en segundo plano, baja la versión nueva para la próxima vez.

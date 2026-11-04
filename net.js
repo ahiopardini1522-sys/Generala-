@@ -626,6 +626,37 @@
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => {}); });
   }
 
+  /* ---------- aviso de turno con la app en segundo plano ---------- */
+  // El juego lo consulta desde el menú. Solo hay notificación si la persona la activó y el celular dio permiso.
+  const NKEY = 'generala:notify';
+  const nget = () => { try { return localStorage.getItem(NKEY); } catch (e) { return null; } };
+  const nset = (v) => { try { localStorage.setItem(NKEY, v); } catch (e) {} };
+  const nsupported = () => typeof Notification !== 'undefined' && 'serviceWorker' in navigator && location.protocol !== 'file:';
+  window.__notifyApi = {
+    state() {
+      if (!nsupported()) return 'unsupported';
+      if (Notification.permission === 'denied') return 'denied';
+      return (Notification.permission === 'granted' && nget() === 'on') ? 'on' : 'off';
+    },
+    enable() {
+      if (!nsupported()) return Promise.resolve('unsupported');
+      let p;
+      try { p = Notification.requestPermission(); } catch (e) { return Promise.resolve('off'); }
+      return Promise.resolve(p).then((r) => {
+        if (r === 'granted') { nset('on'); return 'on'; }
+        return r === 'denied' ? 'denied' : 'off';
+      }).catch(() => 'off');
+    },
+    disable() { nset('off'); },
+    show(title, body) {
+      if (this.state() !== 'on') return Promise.resolve(false);
+      return navigator.serviceWorker.getRegistration().then((reg) => {
+        if (!reg) return false;
+        return reg.showNotification(title, { body, tag: 'turno', renotify: true, icon: 'icons/icon-192.png', vibrate: [110, 70, 110] }).then(() => true);
+      }).catch(() => false);
+    }
+  };
+
   // ganchos para pruebas
   window.__gnrl = {
     NS, brokerOfChar, stores, merge,

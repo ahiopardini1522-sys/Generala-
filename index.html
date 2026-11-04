@@ -200,6 +200,10 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .rank .rn{flex:1;min-width:0;font-weight:700;font-size:19px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank .pt{font-family:var(--font-display);font-size:24px;color:var(--tinta)}
 .rnote{font-size:15px;line-height:1.3;color:#5a3a00;background:rgba(242,182,50,.3);border-radius:10px;padding:8px 10px}
+.rseries{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 16px;font-size:18px;color:rgba(26,26,31,.85);padding:0 2px}
+.rseries .rsl{flex-basis:100%;font-size:13px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:rgba(26,26,31,.55)}
+.rseries .sw b{font-weight:700}
+.menu .msr{padding:6px 12px 8px;border-radius:12px;background:rgba(29,58,138,.07)}
 .rbtns{display:flex;flex-direction:column;gap:10px;margin-top:2px}
 #modal{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center}
 .scrim{position:absolute;inset:0;background:rgba(5,14,17,.62)}
@@ -380,11 +384,14 @@ function actRemove(g,p){
   else if(activeOf(g)===p){patch.roll=0;patch.dice=[];patch.held=NO_HOLD();patch.turn=nextTurn(g2)}
   return patch;
 }
-function newGameDoc(g){
+function newGameDoc(g,winners){
   const order=alive(g);
   const rot=order.length>1?order.slice(1).concat(order[0]):order;
   const names={};rot.forEach(p=>{names[p]=(g.names&&g.names[p])||'?'});
-  return {code:g.code||null,hostId:g.hostId||null,status:'playing',opts:g.opts||{servida:'win'},order:rot,names,gone:{},sheets:{},turn:0,roll:0,dice:[],held:NO_HOLD(),seq:0,evt:{n:0},winners:[],endReason:null,n:(g.n||1)+1};
+  // partidas ganadas: se arrastran de revancha en revancha (los empatados suman los dos)
+  const series=Object.assign({},g.series||{});
+  (winners||[]).forEach(p=>{series[p]=(series[p]||0)+1});
+  return {code:g.code||null,hostId:g.hostId||null,status:'playing',opts:g.opts||{servida:'win'},order:rot,names,gone:{},sheets:{},turn:0,roll:0,dice:[],held:NO_HOLD(),seq:0,evt:{n:0},winners:[],endReason:null,n:(g.n||1)+1,series};
 }
 
 /* ================= estado ================= */
@@ -448,6 +455,64 @@ const Sound={
     const c=this.ctx,b=c.createBuffer(1,c.sampleRate,c.sampleRate),d=b.getChannelData(0);
     for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
     return (this.noise=b);
+  },
+  // Sonidos cortos de aviso: también se generan con notas, sin archivos.
+  _go(fn){
+    if(!this.on)return;
+    try{
+      this.unlock();
+      const c=this.ctx;
+      if(!c||c.state==='closed')return;
+      const out=c.createGain();out.gain.value=0.6;out.connect(c.destination);
+      fn(c,out,c.currentTime+0.02);
+    }catch(e){}
+  },
+  note(c,out,t,f,d,g,type){
+    const o=c.createOscillator(),e=c.createGain();
+    o.type=type||'sine';o.frequency.setValueAtTime(f,t);
+    e.gain.setValueAtTime(0.0001,t);
+    e.gain.exponentialRampToValueAtTime(g,t+0.012);
+    e.gain.exponentialRampToValueAtTime(0.0001,t+d);
+    o.connect(e);e.connect(out);o.start(t);o.stop(t+d+0.03);
+  },
+  score(v){ // al anotar: más notas cuanto más vale; al tachar, un tono grave que baja
+    this._go((c,out,t)=>{
+      if(!(v>0)){
+        const o=c.createOscillator(),e=c.createGain();
+        o.type='triangle';o.frequency.setValueAtTime(250,t);o.frequency.exponentialRampToValueAtTime(110,t+0.26);
+        e.gain.setValueAtTime(0.0001,t);e.gain.exponentialRampToValueAtTime(0.42,t+0.015);e.gain.exponentialRampToValueAtTime(0.0001,t+0.34);
+        o.connect(e);e.connect(out);o.start(t);o.stop(t+0.37);
+        return;
+      }
+      const up=v>=40?[523.25,659.25,783.99,1046.5]:v>=20?[523.25,659.25,783.99]:[587.33,880];
+      up.forEach((f,i)=>this.note(c,out,t+i*0.07,f,i===up.length-1?0.38:0.2,0.4,'triangle'));
+    });
+  },
+  generala(){ // cuando los cinco dados salen iguales
+    this._go((c,out,t)=>{
+      [523.25,659.25,783.99,1046.5,1318.5].forEach((f,i)=>this.note(c,out,t+i*0.08,f,0.5,0.28,'triangle'));
+      [1046.5,1318.5,1568].forEach(f=>this.note(c,out,t+0.45,f,0.9,0.2,'sine'));
+    });
+  },
+  win(){ // fanfarria al terminar la partida
+    this._go((c,out,t)=>{
+      [392,523.25,659.25,783.99].forEach((f,i)=>this.note(c,out,t+i*0.11,f,0.22,0.3,'triangle'));
+      [523.25,659.25,783.99,1046.5].forEach(f=>this.note(c,out,t+0.52,f,1.2,0.2,'triangle'));
+    });
+  },
+  end(){ // fin de partida para quien no ganó: suave
+    this._go((c,out,t)=>{
+      this.note(c,out,t,440,0.35,0.4,'sine');
+      this.note(c,out,t+0.2,329.63,0.5,0.4,'sine');
+    });
+  },
+  turn(){ // "ding-dong" ascendente: te toca
+    this._go((c,out,t)=>{
+      [[659.25,0],[880,0.16]].forEach(([f,d])=>{
+        this.note(c,out,t+d,f,0.55,0.4,'sine');
+        this.note(c,out,t+d,f*2,0.3,0.14,'sine');
+      });
+    });
   },
   roll(n){
     if(!this.on)return;
@@ -574,7 +639,12 @@ function maybeStamp(){
   let text='';
   if(isGenerala(d))text=r===1?'¡Generala servida!':'¡Generala!';
   else if(r===1&&(isPoker(d)||isFull(d)||isEsc(d)))text='¡'+comboName(d,1)+'!';
-  if(text)setTimeout(()=>{if(G&&G.seq===seq&&G.roll===r&&G.dice&&G.dice.length===5)showStamp(text)},REDUCED?0:560);
+  if(text)setTimeout(()=>{
+    if(G&&G.seq===seq&&G.roll===r&&G.dice&&G.dice.length===5){
+      showStamp(text);
+      if(isGenerala(d))Sound.generala();
+    }
+  },REDUCED?0:560);
 }
 
 /* ================= pantallas ================= */
@@ -904,6 +974,19 @@ function barHTML(){
 }
 
 /* ---- resultados ---- */
+// Partidas ganadas en la sala o en el celular (se arrastran de revancha en revancha).
+function seriesTotals(g,withCurrent){
+  const t={};
+  (g.order||[]).forEach(p=>{t[p]=(g.series&&g.series[p])||0});
+  if(withCurrent&&g.status==='finished')winnersNow(g).forEach(p=>{if(p in t)t[p]++});
+  return t;
+}
+function seriesHTML(g,withCurrent){
+  if((g.n||1)<2)return '';
+  const t=seriesTotals(g,withCurrent);
+  return alive(g).slice().sort((a,b)=>(t[b]-t[a])||(g.order.indexOf(a)-g.order.indexOf(b)))
+    .map(p=>`<span class="sw"><b>${esc(nameOf(p))}</b> ${t[p]}</span>`).join(' ');
+}
 function resultsHTML(){
   const rows=G.order.map((p,i)=>({p,i,t:pointsOf(G,p),gone:isGone(G,p)})).sort((a,b)=>(a.gone-b.gone)||(b.t-a.t)||(a.i-b.i));
   const winners=winnersNow(G);
@@ -923,6 +1006,7 @@ function resultsHTML(){
       const pos=r.gone?'–':(1+rows.filter(x=>!x.gone&&x.t>r.t).length)+'º';
       return `<li class="${win.has(r.p)?'win':''}"><span class="pos">${pos}</span><span class="rn">${esc(nameOf(r.p))}${r.p===me.pid&&ui.mode==='online'?' (vos)':''}${r.gone?' · se fue':''}</span><span class="pt">${r.t}</span></li>`;
     }).join('')}</ol>
+    ${(()=>{const s=seriesHTML(G,true);return s?`<p class="rseries"><span class="rsl">Partidas ganadas</span> ${s}</p>`:''})()}
     <div class="rbtns">
       ${canAgain?'<button class="btn primary" data-act="again">Jugar otra vez</button>':''}
       <button class="btn ghost-dark" data-act="hide-results">Ver la planilla</button>
@@ -970,9 +1054,11 @@ function afterGameChange(prev){
   ui.spectator=ui.mode==='online'&&!(g.order||[]).includes(me.pid);
   if(prev&&prev.turn!==g.turn){ui.selected=null;ui.heldDirty=false}
   const en=(g.evt&&g.evt.n)||0;
+  let scored=false;
   if(en>ui.seenEvt){
     ui.seenEvt=en;
     const e=g.evt,reps=e.k?repeatedIn(g,e.k):new Set(),c=CAT[e.k];
+    if(c){Sound.score(e.v);scored=true}
     let msg=(ui.mode==='online'&&e.pid!==me.pid)?evtText(g):'';
     if(reps.size>0&&c){
       if(ui.mode==='local')msg='Repetido en '+c.n+': tocá tu valor para tacharlo.';
@@ -980,7 +1066,29 @@ function afterGameChange(prev){
     }
     if(msg)toast(msg,4200);
   }
+  // fin de la partida: fanfarria para quien ganó, sonido suave para el resto
+  if(prev&&prev.n===g.n&&prev.status==='playing'&&g.status==='finished'){
+    const wins=ui.mode==='local'||(g.winners||[]).includes(me.pid),n0=g.n;
+    setTimeout(()=>{if(G&&G.n===n0&&G.status==='finished'){if(wins)Sound.win();else Sound.end()}},REDUCED?0:(g.endReason==='servida'?1900:750));
+  }
+  // te toca: solo online, y solo cuando el turno pasa a vos
+  const wasMine=!!prev&&prev.n===g.n&&prev.status==='playing'&&Array.isArray(prev.order)&&prev.order[prev.turn]===me.pid;
+  if(prev&&ui.mode==='online'&&!ui.spectator&&g.status==='playing'&&activePid()===me.pid&&!wasMine)alertTurn(scored);
   startCutsSub();
+}
+const BASE_TITLE=document.title;
+function setTitleAlert(on){try{document.title=on?'🎲 ¡Te toca! · Generala':BASE_TITLE}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTitleAlert(false)});
+function alertTurn(afterScore){
+  // si justo sonó la jugada del anterior, el "ding-dong" espera a que termine
+  if(afterScore&&!REDUCED)setTimeout(()=>Sound.turn(),480);
+  else Sound.turn();
+  try{if(navigator.vibrate)navigator.vibrate([110,70,110])}catch(e){}
+  if(document.hidden){
+    setTitleAlert(true);
+    const na=window.__notifyApi;
+    if(na)na.show('¡Te toca!','Sala '+(Net.code||'')+': tirá los dados.');
+  }
 }
 function sendPatch(patch){
   if(!patch||!G)return;
@@ -1038,7 +1146,7 @@ function toggleCut(p,k){
 }
 function playAgain(){
   if(!G||G.status!=='finished')return;
-  const doc=newGameDoc(G);
+  const doc=newGameDoc(G,winnersNow(G));
   ui.hideResults=false;
   if(ui.mode==='local'){setGame(doc);persistLocal()}
   else{setGame(doc);if(Net.writer)Net.writer.set(doc).catch(netError)}
@@ -1046,8 +1154,15 @@ function playAgain(){
 function openMenu(){
   const act=activePid();
   const canKick=ui.mode==='online'&&G&&G.status==='playing'&&!ui.spectator&&act&&act!==me.pid&&!isGone(G,act);
+  const sr=G?seriesHTML(G,false):'';
+  const na=window.__notifyApi,ns=(ui.mode==='online'&&na)?na.state():'unsupported';
+  const notifyItem=ns==='unsupported'?'':ns==='denied'
+    ?'<li><small>Las notificaciones están bloqueadas en los ajustes del celular, así que no podemos avisarte.</small></li>'
+    :`<li><button data-act="notify">${ns==='on'?'Quitar el aviso de turno':'Avisarme cuando me toca'}</button><small>${ns==='on'?'Te llega una notificación cuando es tu turno y estás en otra app.':'Una notificación cuando sea tu turno y estés en otra app.'}</small></li>`;
   openModal('Menú',`<ul class="menu">
+    ${sr?`<li class="msr"><p class="rseries"><span class="rsl">Partidas ganadas</span> ${sr}</p></li>`:''}
     <li><button data-act="rules">Cómo se juega</button></li>
+    ${notifyItem}
     ${canKick?`<li><button data-act="kick" data-p="${esc(act)}">Sacar a ${esc(nameOf(act))} de la partida</button><small>Usalo si se fue o no responde.</small></li>`:''}
     <li><button class="danger" data-act="leave">Salir de la partida</button></li>
   </ul>`);
@@ -1308,6 +1423,13 @@ const ACT={
   score(){doScore()},
   cut(el){toggleCut(el.dataset.p,el.dataset.k)},
   sound(){toggleSound()},
+  async notify(){
+    const na=window.__notifyApi;if(!na)return;
+    closeModal();
+    if(na.state()==='on'){na.disable();toast('Aviso de turno desactivado.');return}
+    const r=await na.enable();
+    toast(r==='on'?'Listo: te aviso cuando te toque.':'No se activó: el celular no dio permiso para las notificaciones.',3600);
+  },
   menu(){openMenu()},
   rules(){openModal('Cómo se juega',RULES_HTML)},
   leave(){askLeave()},
@@ -1359,7 +1481,7 @@ if(hot&&typeof hot.ready==='function')hot.ready(start);
 else start((hot&&hot.data)||{});
 
 // ganchos para pruebas
-window.__G={repeatedIn,pointsOf,catComplete,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
+window.__G={repeatedIn,pointsOf,catComplete,winnersNow,seriesTotals,alertTurn,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
   state:()=>({G,me:{pid:me.pid,name:me.name},screen:ui.screen,mode:ui.mode,selected:ui.selected,spectator:ui.spectator,net:{status:Net.status,code:Net.code,canWrite:Net.canWrite,players:Net.players,cuts:Net.cuts}})};
 })();
 </script>
