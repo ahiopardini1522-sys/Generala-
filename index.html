@@ -159,37 +159,46 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 
 /* planilla: anotador oscuro, como pizarra con tiza */
 .sheetwrap{flex:1;min-height:0;overflow:auto;margin:6px 10px 10px;border-radius:12px;background:var(--hoja);color:var(--papel);box-shadow:0 0 0 1px rgba(243,235,214,.12),0 8px 22px rgba(0,0,0,.4);overscroll-behavior:contain}
-.sheet{border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;height:100%;font-variant-numeric:tabular-nums}
+/* los tamaños se ajustan a la cantidad de jugadores: con pocos, todo se lee más grande */
+.sheet{--ink:25px;--ghost:23px;--nm:16px;--tot:25px;border-collapse:separate;border-spacing:0;table-layout:fixed;width:100%;height:100%;font-variant-numeric:tabular-nums}
+.sheet[data-np="1"],.sheet[data-np="2"]{--ink:31px;--ghost:28px;--nm:20px;--tot:31px}
+.sheet[data-np="3"]{--ink:28px;--ghost:25px;--nm:18px;--tot:28px}
 .sheet th,.sheet td{height:38px;padding:0;text-align:center;position:relative;border-bottom:1px solid var(--linea);border-right:1px solid rgba(243,235,214,.07);font-weight:600}
-.sheet thead th{position:sticky;top:0;z-index:3;height:42px;background:var(--hoja-2);border-top:4px solid var(--pc,#999);border-bottom:2px solid rgba(243,235,214,.22);line-height:1.05}
-.sheet th.lab{position:sticky;left:0;z-index:2;text-align:left;padding:0 6px 0 9px;background:var(--hoja-2);border-right:2px solid rgba(255,122,107,.5)}
+.sheet thead th{position:sticky;top:0;z-index:3;height:48px;background:var(--hoja-2);border-top:4px solid var(--pc,#999);border-bottom:2px solid rgba(243,235,214,.22);line-height:1.05}
+.sheet th.lab{position:sticky;left:0;z-index:2;text-align:left;padding:0 3px 0 9px;background:var(--hoja-2);border-right:2px solid rgba(255,122,107,.5)}
 .sheet thead th.lab{z-index:5;border-top-color:transparent}
-.sheet th.lab .lt{display:block;font-weight:700;font-size:16px;line-height:1}
-.sheet th.lab .lt.num{font-family:var(--font-display);font-weight:400;font-size:20px;color:var(--papel)}
-.sheet th.lab small{display:block;font-size:11px;font-weight:500;opacity:.6;margin-top:2px}
+.sheet th.lab .lt{display:block;font-weight:700;font-size:17px;line-height:1}
+.sheet th.lab .lt.num{font-family:var(--font-display);font-weight:400;font-size:23px;color:var(--papel)}
+.sheet th.lab small{display:block;font-size:12px;font-weight:500;opacity:.7;margin-top:2px}
 .sheet td.act{background:rgba(242,182,50,.13)}
 .sheet thead th.act{background:var(--resaltador);color:var(--carbon)}
-.nm{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 3px;font-weight:700;font-size:15px}
-.nm small{display:block;font-size:10px;font-weight:600;opacity:.6;text-transform:uppercase;letter-spacing:.06em}
+.nm{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0 3px;font-weight:700;font-size:var(--nm)}
+.nm small{display:block;font-size:11px;font-weight:600;opacity:.65;text-transform:uppercase;letter-spacing:.06em}
 .sheet td.gone,.sheet th.gone{opacity:.45}
-.sheet td.done::before{content:"";position:absolute;inset:4px 5px;border-radius:9px;background:rgba(243,235,214,.10);border:1px solid rgba(243,235,214,.24)}
+/* cada jugador anota con su color */
+.sheet td.done::before{content:"";position:absolute;inset:4px 5px;border-radius:9px;background:rgba(var(--pcr,243,235,214),.36);border:1px solid rgba(var(--pcr,243,235,214),.75)}
 .sheet td.done.cruz::before{background:rgba(255,122,107,.14);border-color:rgba(255,122,107,.4)}
 .sheet td.done.last::before{background:rgba(242,182,50,.24);border:2px solid var(--resaltador);box-shadow:0 0 0 3px rgba(242,182,50,.28)}
-.ink{position:relative;z-index:1;display:inline-block;font-size:21px;font-weight:700;color:var(--papel);transform:rotate(var(--r,0deg))}
+/* números a tiza */
+.ink{position:relative;z-index:1;display:inline-block;font-size:var(--ink);font-weight:700;line-height:1;color:#f8f2de;transform:rotate(var(--r,0deg));text-shadow:0 0 .7px rgba(248,242,222,.9),0 1px 0 rgba(0,0,0,.28);filter:url(#chalk)}
 .sheet td.done.last .ink{color:#fff}
 .sheet td.done .cellbtn{z-index:2}
 .sheet td.done.rep::before{border:2px dashed #ffb347;background:rgba(255,179,71,.16)}
-.sheet td.done.rep::after{content:"=";position:absolute;top:3px;right:8px;z-index:1;font-size:13px;font-weight:800;line-height:1;color:#ffb347}
+.sheet td.done.rep::after{content:"=";position:absolute;top:3px;right:8px;z-index:1;font-size:14px;font-weight:800;line-height:1;color:#ffb347}
 .sheet td.done.rep.mine::before{animation:repPulse 1.6s ease-in-out infinite}
 @keyframes repPulse{50%{box-shadow:0 0 0 3px rgba(255,179,71,.4)}}
 .sheet td.done.cut::before{background:rgba(255,122,107,.16);border:1px solid rgba(255,122,107,.5)}
 .sheet td.done.cut .ink{opacity:.45}
 .tachado.over{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:68%;height:62%}
-.ghost{font-size:19px;font-weight:600;color:rgba(243,235,214,.58)}
-.ghost.zero{color:rgba(243,235,214,.26)}
+/* puntos posibles en tu turno: los que suman se ven bien marcados, los ceros quedan discretos */
+.ghost{font-size:var(--ghost);font-weight:600;color:rgba(243,235,214,.58)}
+.ghost.pos{position:relative;z-index:1;font-weight:800;color:#ffd778}
+.ghost.zero{font-size:calc(var(--ghost)*.78);font-weight:600;color:rgba(243,235,214,.27)}
 .cellbtn{position:absolute;inset:0;width:100%;height:100%;display:grid;place-items:center}
+.sheet td.open.pv .cellbtn::before{content:"";position:absolute;inset:4px 5px;border-radius:9px;background:rgba(242,182,50,.07);border:1.5px solid rgba(242,182,50,.72)}
 .sheet td.pick{background:rgba(242,182,50,.3);box-shadow:inset 0 0 0 3px var(--resaltador)}
-.sheet td.pick .ghost{color:#fff;font-weight:700}
+.sheet td.open.pv.pick .cellbtn::before{background:transparent;border-color:transparent}
+.sheet td.pick .ghost{color:#fff;font-weight:800}
 .sheet tr.sel th.lab{background:#554f26}
 .tachado{position:relative;z-index:1;width:68%;height:62%;overflow:visible;vertical-align:middle}
 .tachado path{fill:none;stroke:#ff7a6b;stroke-width:3.4;stroke-linecap:round}
@@ -197,10 +206,44 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .fresh .tachado path{stroke-dasharray:46;stroke-dashoffset:46;animation:draw .36s .05s ease-out forwards}
 @keyframes inkin{from{opacity:0;transform:scale(1.7) rotate(var(--r,0deg))}to{opacity:1;transform:scale(1) rotate(var(--r,0deg))}}
 @keyframes draw{to{stroke-dashoffset:0}}
-.sheet tr.tot>*{position:sticky;bottom:0;z-index:2;height:46px;background:var(--hoja-2);border-top:2px solid rgba(243,235,214,.35);border-bottom:0}
-.sheet tr.tot th.lab{z-index:5;font-family:var(--font-display);font-weight:400;font-size:17px;color:var(--papel);vertical-align:middle}
-.sheet tr.tot td{font-family:var(--font-display);font-weight:400;font-size:22px;color:var(--papel)}
-.sheet tr.tot td.act{background:var(--resaltador);color:var(--carbon)}
+/* subtotales: números y juegos */
+.sheet tr.sub>*{height:28px;border-bottom:1px solid var(--linea);background:rgba(0,0,0,.16);font-size:16px;font-weight:700;color:rgba(243,235,214,.82)}
+.sheet tr.sub.first>*{border-top:2px solid rgba(243,235,214,.24)}
+.sheet tr.sub th.lab{background:var(--hoja-2);font-size:14px;font-weight:600;color:rgba(243,235,214,.72)}
+.sheet tr.sub td.z{color:rgba(243,235,214,.3)}
+.sheet tr.sub td.act{background:rgba(242,182,50,.13)}
+/* total: el que va ganando lleva corona; abajo, la diferencia con el primero */
+.sheet tr.tot>*{position:sticky;bottom:0;z-index:2;height:58px;background:var(--hoja-2);border-top:2px solid rgba(243,235,214,.35);border-bottom:0;vertical-align:middle}
+.sheet tr.tot th.lab{z-index:5;font-family:var(--font-display);font-weight:400;font-size:19px;color:var(--papel)}
+.sheet tr.tot td{--tvc:var(--papel);font-family:var(--font-display);font-weight:400;font-size:var(--tot);color:var(--tvc);border-top:3px solid var(--pc,rgba(243,235,214,.35));background:linear-gradient(rgba(var(--pcr,243,235,214),.17),rgba(var(--pcr,243,235,214),.17)),var(--hoja-2)}
+.sheet tr.tot td.act{--tvc:var(--carbon);background:var(--resaltador)}
+.sheet tr.tot td.lead:not(.act){--tvc:#ffe08a}
+.sheet .tv{display:block;position:relative;height:32px;line-height:32px;color:var(--tvc)}
+.sheet .tv.cnt{color:transparent;animation:totpop .75s .22s cubic-bezier(.2,1.4,.4,1) backwards}
+.sheet .tv.cnt::after{content:attr(data-show);position:absolute;inset:0;color:var(--tvc)}
+@keyframes totpop{0%{transform:scale(1)}25%{transform:scale(1.2)}100%{transform:scale(1)}}
+.sheet .df{display:flex;align-items:center;justify-content:center;gap:2px;height:18px;font-family:var(--font-body);font-style:normal;font-size:15px;font-weight:700;line-height:1;color:rgba(243,235,214,.7)}
+.sheet .df::after{content:attr(data-d)}
+.sheet .df svg{width:16px;height:16px;flex:none;color:var(--resaltador)}
+.sheet tr.tot td.lead .df{color:#ffd778}
+.sheet tr.tot td.act .df{color:rgba(26,26,31,.82)}
+.sheet tr.tot td.act .df svg{color:var(--carbon)}
+.sheet .plus{position:absolute;left:50%;top:-2px;z-index:6;pointer-events:none;font-style:normal;animation:plusUp 1s ease-out both}
+.sheet .plus::after{content:attr(data-v);display:block;padding:2px 9px;border-radius:99px;background:var(--resaltador);color:var(--carbon);font:800 15px/1.25 var(--font-body);box-shadow:0 2px 0 rgba(0,0,0,.35);white-space:nowrap}
+.sheet .plus.neg::after{background:#ff7a6b}
+@keyframes plusUp{0%{opacity:0;transform:translate(-50%,8px) scale(.6)}16%{opacity:1;transform:translate(-50%,-6px) scale(1.12)}70%{opacity:1;transform:translate(-50%,-20px) scale(1)}100%{opacity:0;transform:translate(-50%,-30px) scale(1)}}
+/* pantallas bajas: filas un poco más compactas; angostas: letras algo más chicas con cuatro jugadores */
+@media (max-height:700px){
+  .sheet th,.sheet td{height:36px}
+  .sheet thead th{height:44px}
+  .sheet tr.sub>*{height:26px}
+  .sheet tr.tot>*{height:52px}
+  .sheet .tv{height:28px;line-height:28px}
+}
+@media (max-width:380px){
+  .sheet[data-np="4"]{--ink:22px;--ghost:20px;--nm:14px;--tot:23px}
+  .sheet[data-np="3"]{--ink:25px;--ghost:23px;--nm:16px;--tot:26px}
+}
 
 /* barra de acción */
 .bar{padding:8px 12px calc(12px + env(safe-area-inset-bottom,0px));background:linear-gradient(#0d1f23,#0a181c);border-top:1px solid rgba(255,255,255,.08);display:flex;flex-direction:column;gap:8px}
@@ -268,6 +311,7 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><filter id="chalk" x="-15%" y="-15%" width="130%" height="130%" color-interpolation-filters="sRGB"><feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="1" seed="9" result="w"/><feDisplacementMap in="SourceGraphic" in2="w" scale="2.6" xChannelSelector="R" yChannelSelector="G" result="d"/><feTurbulence type="fractalNoise" baseFrequency="0.6" numOctaves="1" seed="4" result="t"/><feColorMatrix in="t" type="matrix" values="0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 -2 0 0 0 2.05" result="m"/><feComposite in="d" in2="m" operator="in"/></filter></defs></svg>
 <div id="app"></div>
 <div id="overlay" hidden></div>
 <div id="modal" hidden></div>
@@ -327,6 +371,8 @@ const CATS=[
 ];
 const CAT=Object.fromEntries(CATS.map(c=>[c.k,c]));
 const COLORS=['#2d5be3','#d23b2a','#1f8f5f','#7b46c9','#e08a1e','#0e8fa6'];
+const COLORS_RGB=COLORS.map(h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)).join(','));
+const CNT_MS=750,CNT_DELAY=220;
 const MAX_PLAYERS=4;
 const NO_HOLD=()=>[false,false,false,false,false];
 
@@ -529,7 +575,7 @@ const ui={
   setupNames:['',''],setupBots:[false,false],botLevel:'normal',botT:0,botPlan:null,opts:{servida:'win'},
   selected:null,busy:false,busyUntil:0,spectator:false,
   heldLocal:null,heldDirty:false,heldTimer:0,
-  seenSeq:0,seenEvt:0,seenTurn:null,prevKeys:null,fresh:new Set(),freshT:0,
+  seenSeq:0,seenEvt:0,seenTurn:null,prevKeys:null,fresh:new Set(),freshT:0,prevTot:null,cnt:{},cntT:0,cntRaf:0,
   hideResults:false,lastSheet:'',lastBar:'',lastOverlay:'',dieEls:[],confirmFn:null,stampT:0,
   seenReacts:{},reactUntil:0,reactQuiet:0,hiddenAt:0,nudgeAt:0,alertAt:0,reactT:0
 };
@@ -545,9 +591,31 @@ function cutsOf(g,p){
 }
 // la compu tacha sola sus valores repetidos: no hace falta que nadie los toque
 const isCut=(g,p,k)=>!!cutsOf(g,p)[k]||(ui.mode==='local'&&botIs(g,p)&&repeatedIn(g,k).has(p));
-function pointsOf(g,p){
-  const sh=sheetOf(g,p);
-  return CATS.reduce((s,c)=>s+((sh[c.k]>0&&!isCut(g,p,c.k))?sh[c.k]:0),0);
+// puntos de números (1 al 6) y de juegos, sin contar los valores tachados por repetidos
+function partsOf(g,p){
+  const sh=sheetOf(g,p);let nums=0,jue=0;
+  CATS.forEach(c=>{
+    const v=sh[c.k];
+    if(v>0&&!isCut(g,p,c.k)){if(c.k[0]==='n')nums+=v;else jue+=v}
+  });
+  return {nums,jue};
+}
+function pointsOf(g,p){const t=partsOf(g,p);return t.nums+t.jue}
+// quién va ganando: lead = los que van primeros (si empatan, todos); gap = ventaja del único líder sobre el segundo
+function standing(g){
+  if(!g||g.status==='lobby'||!g.order)return null;
+  const al=alive(g);
+  if(!al.length)return null;
+  if(g.endReason==='servida'){
+    const w=(g.winners||[]).filter(p=>al.includes(p));
+    return w.length?{lead:new Set(w),pts:{},best:0,gap:null,diff:false}:null;
+  }
+  const pts={};al.forEach(p=>{pts[p]=pointsOf(g,p)});
+  const best=Math.max(...al.map(p=>pts[p]));
+  if(best<=0)return null;
+  const lead=new Set(al.filter(p=>pts[p]===best));
+  let second=-1;al.forEach(p=>{if(!lead.has(p))second=Math.max(second,pts[p])});
+  return {lead,pts,best,gap:second<0?null:best-second,diff:true};
 }
 function canCut(g,p){
   if(!g||g.status==='lobby'||g.endReason==='servida')return false;
@@ -1049,9 +1117,22 @@ function updateGame(){
     if(added){clearTimeout(ui.freshT);ui.freshT=setTimeout(()=>{ui.fresh.clear();if(ui.screen==='game')render()},900)}
   }
   ui.prevKeys=keys;
+  // el total de cada uno va sumando cuando cambia (solo dentro de la misma partida)
+  const tots={};g.order.forEach(p=>{tots[p]=pointsOf(g,p)});
+  if(ui.prevTot&&ui.prevTot.n===g.n&&!REDUCED){
+    let began=false;
+    g.order.forEach(p=>{
+      const a=ui.prevTot.v[p];
+      if(a!==undefined&&a!==tots[p]){ui.cnt[p]={from:a,to:tots[p],t0:performance.now()+CNT_DELAY};began=true}
+    });
+    if(began){clearTimeout(ui.cntT);ui.cntT=setTimeout(()=>{ui.cnt={};if(ui.screen==='game')render()},CNT_DELAY+1250)}
+  }
+  ui.prevTot={n:g.n,v:tots};
+  $('#sheet').dataset.np=String(g.order.length);
   const sh=sheetHTML();
-  if(sh!==ui.lastSheet){ui.lastSheet=sh;$('#sheet').innerHTML=sh}
-  $('#sheet').style.minWidth=(84+g.order.length*58)+'px';
+  if(sh!==ui.lastSheet){ui.lastSheet=sh;patchSheet($('#sheet'),sh)}
+  if(Object.keys(ui.cnt).length){cancelAnimationFrame(ui.cntRaf);tickCounts()}
+  $('#sheet').style.minWidth=(90+g.order.length*58)+'px';
   if(ui.seenTurn!==g.turn){
     ui.seenTurn=g.turn;
     const wrap=$('#sheetwrap'),th=$('#sheet thead th.act');
@@ -1059,6 +1140,59 @@ function updateGame(){
   }
   const b=barHTML();
   if(b!==ui.lastBar){ui.lastBar=b;$('#barrow').innerHTML=b}
+}
+// Iguala los atributos de un elemento con los de otro
+function syncAttrs(o,n){
+  [...o.attributes].forEach(a=>{if(!n.hasAttribute(a.name))o.removeAttribute(a.name)});
+  [...n.attributes].forEach(a=>{if(o.getAttribute(a.name)!==a.value)o.setAttribute(a.name,a.value)});
+}
+// Actualiza la planilla tocando solo las casillas que cambiaron: el resto sigue siendo el mismo elemento,
+// así no parpadea, no se vuelve a dibujar la tiza y no se reinician las animaciones.
+function patchSheet(el,html){
+  const full=()=>{
+    el.innerHTML=html;
+    el.querySelectorAll('th,td').forEach(c=>{c.__i=c.innerHTML;c.__o=c.outerHTML});
+  };
+  const nt=document.createElement('table');
+  nt.innerHTML=html;
+  const ocg=el.querySelector('colgroup'),ncg=nt.querySelector('colgroup');
+  if(!ocg||!ncg||ocg.outerHTML!==ncg.outerHTML||el.rows.length!==nt.rows.length)return full();
+  for(let r=0;r<nt.rows.length;r++){if(el.rows[r].cells.length!==nt.rows[r].cells.length)return full()}
+  for(let r=0;r<nt.rows.length;r++){
+    const or=el.rows[r],nr=nt.rows[r];
+    syncAttrs(or,nr);
+    const ocs=[...or.cells],ncs=[...nr.cells];
+    ncs.forEach((nc,c)=>{
+      const oc=ocs[c],ni=nc.innerHTML;
+      if(oc.tagName===nc.tagName&&oc.__i===ni){
+        const no=nc.outerHTML;
+        if(oc.__o!==no){syncAttrs(oc,nc);oc.__o=no}
+      }else{
+        nc.__i=ni;nc.__o=nc.outerHTML;
+        oc.replaceWith(nc);
+      }
+    });
+  }
+}
+// El número real queda en el DOM (lo leen los lectores de pantalla y las pruebas); lo que se ve sube por CSS con data-show.
+function tickCounts(){
+  ui.cntRaf=0;
+  const ps=Object.keys(ui.cnt);
+  if(!ps.length)return;
+  const now=performance.now();let live=false;
+  const tds=$$('#sheet tr.tot td');
+  ps.forEach(p=>{
+    const c=ui.cnt[p],t=Math.max(0,Math.min(1,(now-c.t0)/CNT_MS));
+    const v=Math.round(c.from+(c.to-c.from)*(1-Math.pow(1-t,3)));
+    tds.forEach(td=>{
+      if(td.dataset.p!==p)return;
+      const tv=td.querySelector('.tv.cnt'),pl=td.querySelector('.plus');
+      if(tv)tv.dataset.show=String(v);
+      if(pl&&!pl.style.animationDelay)pl.style.animationDelay=-Math.round(now-c.t0)+'ms';
+    });
+    if(t<1)live=true;
+  });
+  if(live)ui.cntRaf=requestAnimationFrame(tickCounts);
 }
 function updateDice(){
   const g=G,els=ui.dieEls;
@@ -1112,16 +1246,19 @@ function sheetHTML(){
   const g=G,act=activePid(),mine=canAct();
   const pot=mine?potentials(g.dice||[],g.roll||0,sheetOf(g,act),g.opts||{}):{};
   const reps={};CATS.forEach(c=>{reps[c.k]=repeatedIn(g,c.k)});
-  let h=`<colgroup><col style="width:84px">${g.order.map(()=>'<col>').join('')}</colgroup>`;
+  const parts={};g.order.forEach(p=>{parts[p]=partsOf(g,p)});
+  const st=standing(g);
+  const px=i=>`--pc:${COLORS[i%6]};--pcr:${COLORS_RGB[i%6]}`;
+  let h=`<colgroup><col style="width:90px">${g.order.map(()=>'<col>').join('')}</colgroup>`;
   h+='<thead><tr><th class="lab" scope="col"><span class="sr">Casilla</span></th>';
   g.order.forEach((p,i)=>{
     const isAct=p===act;
-    h+=`<th scope="col" class="${isAct?'act':''}${isGone(g,p)?' gone':''}" style="--pc:${COLORS[i%6]}"><span class="nm">${esc(nameOf(p))}${p===me.pid&&ui.mode==='online'?'<small>vos</small>':(botIs(g,p)?'<small aria-hidden="true">🤖</small>':'')}</span></th>`;
+    h+=`<th scope="col" class="${isAct?'act':''}${isGone(g,p)?' gone':''}" style="${px(i)}"><span class="nm">${esc(nameOf(p))}${p===me.pid&&ui.mode==='online'?'<small>vos</small>':(botIs(g,p)?'<small aria-hidden="true">🤖</small>':'')}</span></th>`;
   });
   h+='</tr></thead><tbody>';
   CATS.forEach(c=>{
     h+=`<tr class="${mine&&ui.selected===c.k?'sel':''}"><th scope="row" class="lab"><span class="lt${c.k[0]==='n'?' num':''}">${esc(c.t)}</span>${c.h?`<small>${c.h}</small>`:''}</th>`;
-    g.order.forEach(p=>{
+    g.order.forEach((p,i)=>{
       const sh=sheetOf(g,p),v=sh[c.k],isAct=p===act;
       const cls=(isAct?'act ':'')+(isGone(g,p)?'gone ':'');
       if(v!==undefined){
@@ -1138,16 +1275,38 @@ function sheetHTML(){
             inner+=`<button class="cellbtn" data-act="cut" data-p="${esc(p)}" data-k="${c.k}" aria-label="${esc(lab)}"></button>`;
           }
         }else inner='<svg class="tachado" viewBox="0 0 40 24" aria-hidden="true"><path d="M4 19C14 15 25 9 36 4"/></svg><span class="sr">tachado</span>';
-        h+=`<td class="${cls}done${fresh}${last}${flags}">${inner}</td>`;
+        h+=`<td class="${cls}done${fresh}${last}${flags}" style="--pcr:${COLORS_RGB[i%6]}">${inner}</td>`;
       }else if(isAct&&mine&&pot[c.k]!==undefined){
         const pv=pot[c.k],sel=ui.selected===c.k;
         const label=(pv>0?'Anotar '+pv:'Tachar')+' en '+c.n;
-        h+=`<td class="${cls}open${sel?' pick':''}"><button class="cellbtn" data-act="pick" data-k="${c.k}" aria-pressed="${sel}" aria-label="${esc(label)}"><span class="ghost${pv===0?' zero':''}">${pv}</span></button></td>`;
+        h+=`<td class="${cls}open${pv>0?' pv':''}${sel?' pick':''}"><button class="cellbtn" data-act="pick" data-k="${c.k}" aria-pressed="${sel}" aria-label="${esc(label)}"><span class="ghost${pv>0?' pos':' zero'}">${pv}</span></button></td>`;
       }else h+=`<td class="${cls.trim()}"></td>`;
     });
     h+='</tr>';
   });
-  h+='<tr class="tot"><th scope="row" class="lab">Total</th>'+g.order.map(p=>`<td class="${p===act?'act':''}${isGone(g,p)?' gone':''}">${pointsOf(g,p)}</td>`).join('')+'</tr></tbody>';
+  const sub=(label,key,first)=>`<tr class="sub${first?' first':''}"><th scope="row" class="lab">${label}</th>`+g.order.map(p=>{
+    const t=parts[p][key];
+    return `<td class="${p===act?'act ':''}${isGone(g,p)?'gone ':''}${t>0?'':'z'}">${t}</td>`;
+  }).join('')+'</tr>';
+  h+=sub('Números','nums',true)+sub('Juegos','jue',false);
+  h+='<tr class="tot"><th scope="row" class="lab">Total</th>'+g.order.map((p,i)=>{
+    const pts=parts[p].nums+parts[p].jue,gone=isGone(g,p);
+    const lead=!!(st&&!gone&&st.lead.has(p));
+    let d='';
+    if(st&&!gone&&st.diff){
+      if(lead)d=st.lead.size>1?'=':(st.gap!==null?'+'+st.gap:'');
+      else d='−'+(st.best-pts);
+    }
+    let say=`${nameOf(p)}: ${pts} puntos`;
+    if(lead)say+=st.diff&&st.lead.size===1&&st.gap!==null?`, va ganando por ${st.gap}`:', va ganando';
+    else if(d)say+=`, a ${st.best-pts} del primero`;
+    const c=ui.cnt[p];
+    return `<td class="${p===act?'act ':''}${gone?'gone ':''}${lead?'lead':''}" data-p="${esc(p)}" aria-label="${esc(say)}" style="${px(i)}">`
+      +`<b class="tv${c?' cnt':''}"${c?` data-show="${c.to}"`:''}>${pts}</b>`
+      +`<i class="df"${d?` data-d="${d}"`:''}>${lead?ICON.crown:''}</i>`
+      +(c?`<em class="plus${c.to<c.from?' neg':''}" data-v="${c.to>c.from?'+'+(c.to-c.from):'−'+(c.from-c.to)}"></em>`:'')
+      +'</td>';
+  }).join('')+'</tr></tbody>';
   return h;
 }
 function barHTML(){
@@ -1232,6 +1391,7 @@ function resetTrackers(){
   ui.seenSeq=g.seq||0;ui.seenEvt=(g.evt&&g.evt.n)||0;ui.seenTurn=null;
   ui.selected=null;ui.heldDirty=false;clearTimeout(ui.heldTimer);
   ui.hideResults=false;ui.prevKeys=null;ui.fresh.clear();ui.lastSheet='';ui.lastBar='';ui.busyUntil=0;ui.botPlan=null;
+  ui.prevTot=null;ui.cnt={};clearTimeout(ui.cntT);
   ui.seenReacts={};ui.reactUntil=0;
 }
 function evtText(g){
@@ -1810,7 +1970,7 @@ if(hot&&typeof hot.ready==='function')hot.ready(start);
 else start((hot&&hot.data)||{});
 
 // ganchos para pruebas
-window.__G={CUBE_END,REACTS,showReaction,sendReact,canReact,repeatedIn,pointsOf,catComplete,winnersNow,seriesTotals,alertTurn,botPlan,botIs,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
+window.__G={CUBE_END,REACTS,showReaction,sendReact,canReact,repeatedIn,pointsOf,partsOf,standing,sheetHTML,catComplete,winnersNow,seriesTotals,alertTurn,botPlan,botIs,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
   state:()=>({G,me:{pid:me.pid,name:me.name},screen:ui.screen,mode:ui.mode,selected:ui.selected,spectator:ui.spectator,net:{status:Net.status,code:Net.code,canWrite:Net.canWrite,players:Net.players,cuts:Net.cuts,reacts:Net.reacts}})};
 })();
 </script>
