@@ -6,6 +6,9 @@ La Generala para jugar con amigos, online o pasándose un solo celular.
 
 - Hasta 4 jugadores.
 - Online: se crea una sala y se comparte el link o el código de 4 letras.
+- Contra la compu: en "En este celular" se puede poner a la compu en cualquier lugar (nivel fácil o normal) para practicar solo o completar la mesa.
+- Reacciones rápidas en las salas online: aplauso, risa, sorpresa, bronca, mate y un ⏰ para apurar a quien tiene el turno.
+- Los dados ruedan en 3D (si el celular pide reducir el movimiento, se muestran sin animación).
 - Te avisa cuando te toca (sonido y vibración, y una notificación si la activás desde el menú) y lleva la cuenta de partidas ganadas entre revanchas.
 - Se instala como app: en Android desde el menú del navegador (Instalar app), en iPhone con Compartir y Agregar a inicio.
 
