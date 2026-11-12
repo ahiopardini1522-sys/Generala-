@@ -326,9 +326,15 @@
     }
     wanted(path) { return this.wantDoc.has(path) || this.wantCol.has(parentOf(path)); }
     wantAny() { return this.wantDoc.size > 0 || this.wantCol.size > 0; }
+    // Los avisos de conexión son para cuando hay una partida abierta; el buzón de amigos reintenta en silencio.
+    wantGame() {
+      for (const k of this.wantDoc.keys()) if (k.indexOf('games/') === 0) return true;
+      for (const k of this.wantCol.keys()) if (k.indexOf('games/') === 0) return true;
+      return false;
+    }
     onState(up) {
-      if (!up) { this.dropped = true; if (this.wantAny()) notice('Sin conexión. Reconectando…'); }
-      else if (this.dropped) { this.dropped = false; if (this.wantAny()) notice('Conexión recuperada.'); }
+      if (!up) { this.dropped = true; if (this.wantGame()) notice('Sin conexión. Reconectando…'); }
+      else if (this.dropped) { this.dropped = false; if (this.wantGame()) notice('Conexión recuperada.'); }
     }
     onMsg(topic, payload) {
       const bw = this.barriers.get(topic);
@@ -476,6 +482,9 @@
   function idxForPath(path) {
     const m = /^games\/([A-Za-z0-9]{4})(?:\/|$)/.exec(path);
     if (m) return brokerOfChar(m[1][0]);
+    // el buzón de un amigo vive en el servidor que dice la primera letra de su código de amigo
+    const f = /^mail\/([A-Za-z0-9]{6})(?:\/|$)/.exec(path);
+    if (f) return brokerOfChar(f[1][0]);
     return preferred === null ? 0 : preferred;
   }
   function pickBroker() {
@@ -497,10 +506,11 @@
     }).then((i) => { probing = null; return i; });
     return probing;
   }
-  window.__genCode = function () {
+  // Códigos de sala (4) y de amigo (6): la primera letra queda dentro del servidor que usa este celular.
+  window.__genCode = function (len) {
     const b = preferred === null ? 0 : preferred;
     const firsts = Array.from(ALPHA).filter((c) => brokerOfChar(c) === b);
-    return pick(firsts.length ? firsts.join('') : ALPHA) + randStr(3, ALPHA);
+    return pick(firsts.length ? firsts.join('') : ALPHA) + randStr((len || 4) - 1, ALPHA);
   };
 
   /* ---------- referencias a documentos y colecciones ---------- */
@@ -648,11 +658,11 @@
       }).catch(() => 'off');
     },
     disable() { nset('off'); },
-    show(title, body) {
+    show(title, body, tag) {
       if (this.state() !== 'on') return Promise.resolve(false);
       return navigator.serviceWorker.getRegistration().then((reg) => {
         if (!reg) return false;
-        return reg.showNotification(title, { body, tag: 'turno', renotify: true, icon: 'icons/icon-192.png', vibrate: [110, 70, 110] }).then(() => true);
+        return reg.showNotification(title, { body, tag: tag || 'turno', renotify: true, icon: 'icons/icon-192.png', vibrate: [110, 70, 110] }).then(() => true);
       }).catch(() => false);
     }
   };
