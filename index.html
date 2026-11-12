@@ -367,6 +367,13 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 #confetti{position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden}
 #confetti i{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;background:var(--c);opacity:.95;animation:confall var(--t,1.8s) cubic-bezier(.3,.6,.6,1) var(--dl,0s) forwards}
 @keyframes confall{to{transform:translate(var(--dx,0),105vh) rotate(var(--rot,540deg));opacity:.9}}
+/* mensajes de voz */
+#btnVoice.rec{background:var(--marcador);color:#fff;animation:recpulse 1s ease-in-out infinite}
+#btnVoice[disabled]{opacity:.45}
+@keyframes recpulse{50%{box-shadow:0 0 0 7px rgba(210,59,42,.28)}}
+#recPill{position:fixed;left:50%;top:calc(58px + env(safe-area-inset-top,0px));transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;padding:9px 16px;border-radius:999px;background:var(--marcador);color:#fff;font-weight:700;font-size:15px;box-shadow:0 6px 18px rgba(0,0,0,.4);white-space:nowrap;max-width:calc(100vw - 20px)}
+#recPill i{width:10px;height:10px;border-radius:50%;background:#fff;animation:recblink 1s steps(2) infinite}
+@keyframes recblink{50%{opacity:.25}}
 .row2{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 .installbox{display:flex;justify-content:center}
 .note .link{padding:0;font-size:inherit;display:inline;align-self:auto}
@@ -833,6 +840,7 @@ const effectiveHeld=()=>ui.heldDirty?ui.heldLocal:((G&&G.held&&G.held.length===5
 /* ================= iconos y textos ================= */
 const ICON={
   menu:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  mic:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></svg>',
   help:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1.1.9-1.1 1.7M12 16.8h.01"/></svg>',
   back:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>',
   crown:'<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><path d="M3 8l4.5 4L12 5l4.5 7L21 8l-2 11H5z"/></svg>',
@@ -1155,7 +1163,8 @@ function mountGame(){
       <span class="icon" id="reactGap" aria-hidden="true"></span>
       <div class="gt"><b id="gtTitle"></b><small id="gtRound"></small></div>
       <button class="icon" id="btnSound" data-act="sound"></button>
-      <button class="icon" data-act="rules" aria-label="Cómo se juega">${ICON.help}</button>
+      <button class="icon" id="btnHelp" data-act="rules" aria-label="Cómo se juega">${ICON.help}</button>
+      <button class="icon" id="btnVoice" data-act="voice" aria-label="Mandar un mensaje de voz" aria-pressed="false" hidden>${ICON.mic}</button>
       <div class="rtray" id="rtray" role="group" aria-label="Reacciones" hidden>${REACTS.map(r=>`<button data-act="react" data-e="${r.e}" aria-label="${r.t}">${r.e}</button>`).join('')}</div>
     </div>
     <div class="turnbar" aria-live="polite"><i class="dot" id="turnDot"></i><span id="turnText"></span><span class="rt" id="rollText"></span></div>
@@ -1486,7 +1495,7 @@ function resetTrackers(){
   ui.selected=null;ui.heldDirty=false;clearTimeout(ui.heldTimer);
   ui.hideResults=false;ui.prevKeys=null;ui.fresh.clear();ui.lastSheet='';ui.lastBar='';ui.busyUntil=0;ui.botPlan=null;
   ui.prevTot=null;ui.cnt={};clearTimeout(ui.cntT);
-  ui.seenReacts={};ui.reactUntil=0;
+  ui.seenReacts={};ui.reactUntil=0;Voice.seen={};
 }
 function evtText(g){
   const e=g.evt,c=CAT[e.k];
@@ -1532,6 +1541,7 @@ function afterGameChange(prev){
   if(prev&&ui.mode==='online'&&!ui.spectator&&g.status==='playing'&&activePid()===me.pid&&!wasMine&&!(g.evt&&g.evt.u))alertTurn(scored);
   startCutsSub();
   startReactsSub();
+  startVoiceSub();
   botKick();
 }
 const BASE_TITLE=document.title;
@@ -1573,6 +1583,7 @@ function syncReactBtn(){
   const ok=canReact();
   b.hidden=!ok;gap.hidden=ok;
   if(!ok)closeReactTray();
+  syncVoiceBtn();
 }
 function showReaction(p,e){
   const layer=$('#reactLayer');
@@ -1615,7 +1626,7 @@ function startReactsSub(){
     handleReacts(m);
   },()=>{});
 }
-function stopReactsSub(){if(Net.unsubR){Net.unsubR();Net.unsubR=null}Net.reacts={};Net.reactQ=null}
+function stopReactsSub(){if(Net.unsubR){Net.unsubR();Net.unsubR=null}Net.reacts={};Net.reactQ=null;stopVoiceSub()}
 function handleReacts(m){
   const g=G;
   if(!g||ui.mode!=='online'||g.status==='lobby')return;
@@ -1767,6 +1778,156 @@ function askLeave(){
 function doLeave(){
   if(ui.mode==='local'){store.del('local');G=null;ui.mode=null;goHome()}
   else leaveRoom();
+}
+
+/* ================= mensajes de voz (walkie-talkie) ================= */
+// Se graban unos segundos y viajan como un documento propio de cada jugador (igual que las reacciones).
+// No es una llamada: así funciona con cualquier conexión y sin servidores propios.
+const VOICE_MAX_MS=10000,VOICE_MAX_B64=120000;
+const Voice={rec:null,stream:null,chunks:[],t0:0,stopT:0,tick:0,busy:false,until:0,seen:{},queue:[],playing:null,unsub:null,sent:false,q:null,cancel:false};
+function voiceAvail(){return !!(window.__gnrl||window.__VOICE)}
+function voiceCanRec(){return voiceAvail()&&!!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder)}
+function canVoice(){return canReact()&&voiceCanRec()}
+function syncVoiceBtn(){
+  const b=$('#btnVoice'),h=$('#btnHelp');
+  if(!b||!h)return;
+  const ok=canVoice();
+  b.hidden=!ok;h.hidden=ok;
+  if(!ok&&Voice.rec)voiceAbort();
+  const on=!!Voice.rec;
+  b.classList.toggle('rec',on);
+  b.setAttribute('aria-pressed',on?'true':'false');
+  b.setAttribute('aria-label',on?'Terminar y enviar el mensaje de voz':'Mandar un mensaje de voz');
+  b.disabled=Voice.busy&&!on;
+}
+function recPill(txt){
+  let p=$('#recPill');
+  if(!txt){if(p)p.remove();return}
+  if(!p){p=document.createElement('div');p.id='recPill';p.setAttribute('role','status');p.innerHTML='<i></i><span></span>';document.body.appendChild(p)}
+  p.lastChild.textContent=txt;
+}
+function voiceMime(){
+  const c=['audio/webm;codecs=opus','audio/mp4','audio/webm','audio/ogg;codecs=opus'];
+  for(const m of c){try{if(MediaRecorder.isTypeSupported(m))return m}catch(e){}}
+  return '';
+}
+function voiceRelease(){
+  clearTimeout(Voice.stopT);clearInterval(Voice.tick);
+  if(Voice.stream){try{Voice.stream.getTracks().forEach(t=>t.stop())}catch(e){}}
+  Voice.stream=null;Voice.rec=null;Voice.chunks=[];
+  recPill('');syncVoiceBtn();
+}
+function voiceAbort(){
+  Voice.cancel=true;
+  const r=Voice.rec;
+  if(r&&r.state!=='inactive'){try{r.stop()}catch(e){}}
+  voiceRelease();Voice.busy=false;syncVoiceBtn();
+}
+async function voiceToggle(){
+  if(Voice.rec){voiceFinish();return}
+  if(!canVoice()||Voice.busy)return;
+  if(Date.now()<Voice.until){toast('Esperá un momento antes de mandar otro audio.');return}
+  Voice.busy=true;Voice.cancel=false;syncVoiceBtn();
+  let stream;
+  try{stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1}})}
+  catch(e){Voice.busy=false;syncVoiceBtn();toast('Para hablar, permití usar el micrófono.',3600);return}
+  if(!canVoice()||Voice.cancel){try{stream.getTracks().forEach(t=>t.stop())}catch(e){}Voice.busy=false;syncVoiceBtn();return}
+  let rec;
+  try{const m=voiceMime();rec=new MediaRecorder(stream,Object.assign({audioBitsPerSecond:16000},m?{mimeType:m}:{}))}
+  catch(e){try{stream.getTracks().forEach(t=>t.stop())}catch(x){}Voice.busy=false;syncVoiceBtn();toast('Este celular no puede grabar audio acá.');return}
+  Voice.stream=stream;Voice.rec=rec;Voice.chunks=[];Voice.t0=Date.now();
+  rec.ondataavailable=e=>{if(e.data&&e.data.size)Voice.chunks.push(e.data)};
+  rec.onstop=()=>voiceDone(rec);
+  try{rec.start()}catch(e){voiceAbort();toast('No se pudo empezar a grabar.');return}
+  const left=()=>Math.max(0,Math.ceil((VOICE_MAX_MS-(Date.now()-Voice.t0))/1000));
+  recPill(`Grabando… ${left()} s · tocá para enviar`);
+  Voice.tick=setInterval(()=>recPill(`Grabando… ${left()} s · tocá para enviar`),500);
+  Voice.stopT=setTimeout(voiceFinish,VOICE_MAX_MS);
+  syncVoiceBtn();
+}
+function voiceFinish(){
+  const r=Voice.rec;
+  if(!r)return;
+  clearTimeout(Voice.stopT);clearInterval(Voice.tick);
+  if(r.state!=='inactive'){try{r.stop()}catch(e){voiceAbort()}}
+}
+function blobToB64(blob){
+  return new Promise((res,rej)=>{const fr=new FileReader();fr.onload=()=>{const s=String(fr.result||'');res(s.slice(s.indexOf(',')+1))};fr.onerror=()=>rej(fr.error);fr.readAsDataURL(blob)});
+}
+async function voiceDone(rec){
+  const ms=Date.now()-Voice.t0,chunks=Voice.chunks,mime=(rec.mimeType||'audio/webm').split(';')[0],cancelled=Voice.cancel;
+  voiceRelease();
+  const end=()=>{Voice.busy=false;syncVoiceBtn()};
+  if(cancelled||!canReact()||!Net.db||!Net.code){end();return}
+  if(ms<500||!chunks.length){end();toast('Muy corto. Tocá, hablá y tocá de nuevo para enviar.',3200);return}
+  try{
+    const b64=await blobToB64(new Blob(chunks,{type:mime}));
+    if(!b64||b64.length>VOICE_MAX_B64){end();toast('El audio quedó muy largo. Probá uno más corto.');return}
+    const old=Voice.seen[me.pid],n=Math.max(Date.now(),(old||0)+1);
+    const doc={g:G.n||0,n,ms:Math.min(ms,VOICE_MAX_MS),m:mime,a:b64};
+    Voice.seen[me.pid]=n;Voice.until=Date.now()+1500;Voice.sent=true;
+    showReaction(me.pid,'🎤');
+    const ref=Net.db.doc(`games/${Net.code}/voz/${me.pid}`);
+    Voice.q=(Voice.q||Promise.resolve()).then(()=>ref.set(doc)).then(()=>toast('Audio enviado.',1600),()=>toast('No se pudo enviar el audio. Probá de nuevo.',3200));
+  }catch(e){toast('No se pudo preparar el audio.')}
+  end();
+}
+function startVoiceSub(){
+  if(Voice.unsub||!voiceAvail()||!Net.db||!Net.code||ui.mode!=='online')return;
+  Voice.quiet=Date.now()+1000;
+  Voice.unsub=Net.db.collection(`games/${Net.code}/voz`).onSnapshot(qs=>{
+    const m={};qs.docs.forEach(d=>{m[d.id]=d.data()});
+    handleVoice(m);
+  },()=>{});
+}
+function stopVoiceSub(){
+  if(Voice.unsub){Voice.unsub();Voice.unsub=null}
+  if(Voice.rec||Voice.busy)voiceAbort();
+  Voice.queue=[];Voice.q=null;
+  if(Voice.playing){try{Voice.playing.pause()}catch(e){}Voice.playing=null}
+}
+// Al salir de la sala se borra el último audio propio, para no dejarlo guardado en el servidor.
+function dropVoice(){
+  if(!Voice.sent||!Net.db||!Net.code||!me.pid)return;
+  Voice.sent=false;
+  Net.db.doc(`games/${Net.code}/voz/${me.pid}`).delete().catch(()=>{});
+}
+function handleVoice(m){
+  const g=G;
+  if(!g||ui.mode!=='online'||g.status==='lobby')return;
+  Object.keys(m).forEach(p=>{
+    const r=m[p];
+    if(!r||typeof r.n!=='number'||typeof r.a!=='string')return;
+    if(Voice.seen[p]&&r.n<=Voice.seen[p])return;
+    Voice.seen[p]=r.n;
+    if(Date.now()<Voice.quiet||Date.now()<ui.reactQuiet||r.g!==(g.n||0))return;   // lo viejo no se repite
+    if(p===me.pid||!(g.order||[]).includes(p)||isGone(g,p))return;
+    if(!r.a||r.a.length>VOICE_MAX_B64||!/^audio\/[a-z0-9.+-]+$/i.test(String(r.m||'')))return;
+    if(!Sound.on){showReaction(p,'🎤');toast(`${nameOf(p)} mandó un audio. Activá el sonido para escucharlo.`,3600);return}
+    if(Voice.queue.length>=4)Voice.queue.shift();
+    Voice.queue.push({p,a:r.a,m:r.m});
+    voicePump();
+  });
+}
+function voicePump(){
+  if(Voice.playing||!Voice.queue.length)return;
+  const it=Voice.queue.shift();
+  let url='';
+  const done=()=>{if(url)URL.revokeObjectURL(url);if(Voice.playing===au)Voice.playing=null;voicePump()};
+  let au;
+  try{
+    const bin=atob(it.a),bytes=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+    url=URL.createObjectURL(new Blob([bytes],{type:it.m}));
+    au=new Audio(url);
+  }catch(e){done();return}
+  Voice.playing=au;
+  showReaction(it.p,'🎤');
+  const live=$('#reactLive');if(live)live.textContent=`Mensaje de voz de ${nameOf(it.p)}`;
+  au.onended=done;
+  au.onerror=()=>{toast(`No se pudo reproducir el audio de ${nameOf(it.p)}.`,3200);done()};
+  const pr=au.play();
+  if(pr&&pr.catch)pr.catch(()=>{toast(`${nameOf(it.p)} mandó un audio. Tocá la pantalla y pedile que lo repita.`,3600);done()});
 }
 
 /* ================= colores, récords y detalle ================= */
@@ -2448,6 +2609,7 @@ function onGame(snap){
 async function leaveRoom(silent){
   const code=Net.code,db=Net.db,wasLobby=!!G&&G.status==='lobby',host=!!G&&G.hostId===me.pid;
   const players=Net.players.slice();
+  dropVoice();
   retractInvites();
   unsubscribe();store.del('room');clearHash();
   G=null;Net.code=null;Net.players=[];Net.playersSeen=false;ui.mode=null;ui.spectator=false;
@@ -2587,6 +2749,7 @@ const ACT={
   },
   roll(){doRoll()},
   undo(){doUndo()},
+  voice(){voiceToggle()},
   player(el){openPlayer(el.dataset.p)},
   stats(){openStats()},
   'stats-reset'(){askResetStats()},
@@ -2677,7 +2840,7 @@ if(hot&&typeof hot.ready==='function')hot.ready(start);
 else start((hot&&hot.data)||{});
 
 // ganchos para pruebas
-window.__G={canUndo,Stats,statEntry,Look,fidFromId,FID_RE,CUBE_END,REACTS,showReaction,sendReact,canReact,repeatedIn,pointsOf,partsOf,standing,sheetHTML,catComplete,winnersNow,seriesTotals,alertTurn,botPlan,botIs,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
+window.__G={Voice,canUndo,Stats,statEntry,Look,fidFromId,FID_RE,CUBE_END,REACTS,showReaction,sendReact,canReact,repeatedIn,pointsOf,partsOf,standing,sheetHTML,catComplete,winnersNow,seriesTotals,alertTurn,botPlan,botIs,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
   state:()=>({G,me:{pid:me.pid,name:me.name},screen:ui.screen,mode:ui.mode,selected:ui.selected,spectator:ui.spectator,net:{status:Net.status,code:Net.code,canWrite:Net.canWrite,players:Net.players,cuts:Net.cuts,reacts:Net.reacts},
     friends:{fid:Fr.fid,list:Fr.friends.map(f=>({id:f.id,name:f.name})),hellos:Fr.hellos.slice(),invited:Object.assign({},Fr.invited),
       notices:Fr.notices.map(n=>({kind:n.kind,from:n.from,name:n.name,room:n.room||null})),inbox:Object.keys(Net.inbox)}})};

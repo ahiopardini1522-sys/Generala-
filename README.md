@@ -10,6 +10,7 @@ La Generala para jugar con amigos, online o pasándose un solo celular.
 - Reacciones rápidas en las salas online: aplauso, risa, sorpresa, bronca, mate y un ⏰ para apurar a quien tiene el turno.
 - Los dados ruedan en 3D (si el celular pide reducir el movimiento, se muestran sin animación).
 - Anotador pensado para leerlo de un vistazo: números grandes (más grandes cuantos menos jugadores), cada uno anota con su color, en tu turno los puntos posibles se ven marcados y los ceros quedan discretos, corona y diferencia de puntos para el que va ganando, subtotales de números y de juegos, y el total que va sumando.
+- Mensajes de voz: en una partida online tocá el micrófono, hablá hasta 10 segundos y tocá de nuevo; a los demás les suena al momento. No es una llamada en vivo: es tipo walkie-talkie, así anda con cualquier conexión. El audio pasa por el mismo servidor público que la sala y se borra al salir.
 - Deshacer: si te equivocaste de casilla, podés deshacer tu última jugada hasta que el siguiente tire los dados.
 - Tocá el nombre de un jugador en el anotador para ver su detalle: cómo va, qué le falta y qué tachó.
 - Récords: partidas jugadas y ganadas, mejor puntaje, promedio, generalas y la cuenta contra cada amigo. Cuentan las partidas online y las que jugás contra la compu, y se guardan solo en tu celular.
