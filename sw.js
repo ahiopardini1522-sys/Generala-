@@ -1,5 +1,5 @@
 /* Service worker de la Generala: deja la app lista para abrirse sin conexión. */
-const VERSION = 'gnrl-b03cb0f090';
+const VERSION = 'gnrl-44798a557e';
 const CORE = ['./', 'index.html', 'net.js', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-64.png'];
 

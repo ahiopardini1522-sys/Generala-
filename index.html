@@ -378,6 +378,15 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 .rtray .rmsgs{flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;padding:5px 2px 2px}
 .rtray .rmsgs button{width:auto;height:38px;padding:0 11px;font-size:15px;font-weight:700;color:var(--papel);background:rgba(243,235,214,.12)}
 .rb .re.txt{font-size:19px;font-weight:800;line-height:1.15;padding:9px 15px;border-radius:16px;background:var(--papel);color:var(--carbon);filter:none;box-shadow:0 6px 16px rgba(0,0,0,.45);white-space:nowrap}
+/* logros */
+.medals{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.medal{display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:12px;background:rgba(29,58,138,.07);color:var(--carbon);min-width:0}
+.medal i{flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-style:normal;font-size:21px;background:var(--resaltador);box-shadow:inset 0 0 0 2px rgba(26,26,31,.2)}
+.medal b{display:block;font-size:15px;font-weight:700;line-height:1.15}
+.medal span{display:block;font-size:13px;line-height:1.2;color:rgba(26,26,31,.68)}
+.medal.off{background:rgba(26,26,31,.05)}
+.medal.off i{background:rgba(26,26,31,.12);filter:grayscale(1);opacity:.55}
+.medal.off b{color:rgba(26,26,31,.6)}
 /* mensajes de voz */
 #btnVoice.rec{background:var(--marcador);color:#fff;animation:recpulse 1s ease-in-out infinite}
 #btnVoice[disabled]{opacity:.45}
@@ -2044,7 +2053,8 @@ const Stats=(()=>{
   return {
     put(e){load();const i=S.log.findIndex(x=>x.key===e.key);if(i>=0)S.log[i]=e;else S.log.push(e);while(S.log.length>30)fold(S.base,S.log.shift());save()},
     summary(){load();const b=JSON.parse(JSON.stringify(S.base));S.log.forEach(e=>fold(b,e));b.recent=S.log.slice(-5).reverse();return b},
-    reset(){S=blank();save()}
+    reset(){S=blank();save()},
+    log(){load();return S.log.slice()}
   };
 })();
 function statEntry(g){
@@ -2081,10 +2091,60 @@ function syncStats(){
   if(sig===ui.statSig)return;
   ui.statSig=sig;
   Stats.put(e);
+  awardFor(G,e);
+}
+// Logros: se ganan al terminar una partida que cuenta para los récords, y quedan guardados en este celular.
+const MEDALS=[
+  {k:'primera',e:'🎲',n:'Primera partida',d:'Terminá una partida.'},
+  {k:'victoria',e:'🏆',n:'Primera victoria',d:'Ganá una partida.'},
+  {k:'generala',e:'⭐',n:'¡Generala!',d:'Anotá una generala.'},
+  {k:'doble',e:'🌟',n:'Generala doble',d:'Anotá la generala doble.'},
+  {k:'servida',e:'🎯',n:'Mano servida',d:'Anotá un juego servido.'},
+  {k:'p150',e:'📈',n:'Buen puntaje',d:'Llegá a 150 puntos.'},
+  {k:'p200',e:'💎',n:'Puntaje de oro',d:'Llegá a 200 puntos.'},
+  {k:'limpia',e:'✨',n:'Planilla limpia',d:'Terminá sin tachar ninguna casilla.'},
+  {k:'racha3',e:'🔥',n:'En racha',d:'Ganá tres partidas seguidas.'},
+  {k:'diez',e:'🎖️',n:'Jugador de mesa',d:'Jugá 10 partidas.'},
+  {k:'cincuenta',e:'👑',n:'Veterano',d:'Jugá 50 partidas.'},
+  {k:'amigo',e:'🤝',n:'Entre amigos',d:'Ganale a un amigo de tu lista.'},
+  {k:'compu',e:'🤖',n:'Más que la máquina',d:'Ganale a la compu en nivel Normal.'}
+];
+function loadMedals(){
+  try{const o=JSON.parse(store.get('logros')||'null');if(isObj(o))return o}catch(e){}
+  return {};
+}
+function awardFor(g,e){
+  const have=loadMedals(),got=[],s=Stats.summary(),log=Stats.log();
+  const p=ui.mode==='online'?me.pid:alive(g).find(q=>!botIs(g,q)),sh=sheetOf(g,p);
+  const servWin=!e.full&&e.win;
+  const ok={
+    primera:true,
+    victoria:e.win,
+    generala:sh.gen>0||servWin,
+    doble:sh.gdo>0,
+    servida:servWin||sh.esc===25||sh.ful===35||sh.pok===45||sh.gen===60,
+    p150:e.full&&e.pts>=150,
+    p200:e.full&&e.pts>=200,
+    limpia:e.full&&CATS.every(c=>sh[c.k]>0),
+    racha3:log.length>=3&&log.slice(-3).every(x=>x.win),
+    diez:s.p>=10,
+    cincuenta:s.p>=50,
+    amigo:(e.vs||[]).some(x=>x.r==='w'),
+    compu:e.mode==='bot'&&e.win&&(g.botLevel||'normal')==='normal'
+  };
+  MEDALS.forEach(m=>{if(ok[m.k]&&!have[m.k]){have[m.k]=Date.now();got.push(m)}});
+  if(!got.length)return;
+  store.set('logros',JSON.stringify(have));
+  const names=got.map(m=>m.n);
+  setTimeout(()=>toast(`🏅 ${got.length>1?'Nuevos logros':'Nuevo logro'}: ${names.length>1?names.slice(0,-1).join(', ')+' y '+names[names.length-1]:names[0]}`,5200),REDUCED?300:2600);
+}
+function medalsHTML(){
+  const have=loadMedals(),n=MEDALS.filter(m=>have[m.k]).length;
+  return `<h3>Logros (${n} de ${MEDALS.length})</h3><div class="medals" id="medals">${MEDALS.map(m=>`<div class="medal${have[m.k]?'':' off'}"><i aria-hidden="true">${m.e}</i><div><b>${m.n}</b><span>${have[m.k]?'Conseguido':m.d}</span></div></div>`).join('')}</div>`;
 }
 function statsHTML(){
   const s=Stats.summary();
-  if(!s.p)return '<p class="fsub">Todavía no hay partidas anotadas. Cuentan las partidas online y las que jugás vos contra la compu, desde ahora.</p>';
+  if(!s.p)return '<p class="fsub">Todavía no hay partidas anotadas. Cuentan las partidas online y las que jugás vos contra la compu, desde ahora.</p>'+medalsHTML();
   const pct=Math.round(100*s.w/s.p),avg=s.full?Math.round(s.sum/s.full):0;
   const tile=(v,l)=>`<div><b>${v}</b><span>${l}</span></div>`;
   let h=`<div class="statgrid">${tile(s.p,'Partidas')}${tile(s.w,'Ganadas')}${tile(pct+'%','De victorias')}${tile(s.best,'Mejor puntaje')}${tile(avg,'Promedio')}${tile(s.gens,'Generalas')}</div>`;
@@ -2105,14 +2165,15 @@ function statsHTML(){
     const res=e.tie?'Empate':(e.win?'Ganada':`${e.pos}º de ${e.np}`);
     return `<li><b>${res}</b><span>${e.full?e.pts+' puntos':'Generala servida'} · ${e.mode==='online'?'online':'compu'}${d?' · '+esc(d):''}</span></li>`;
   }).join('')}</ul>`;
-  h+='<button class="btn ghost-dark small" style="margin-top:14px;width:100%" data-act="stats-reset">Borrar mis récords</button>';
+  h+=medalsHTML();
+  h+='<button class="btn ghost-dark small" style="margin-top:14px;width:100%" data-act="stats-reset">Borrar mis récords y logros</button>';
   return h;
 }
 function openStats(){
   openModal('Récords',`<div class="stats"><p class="fsub">Se guardan solo en este celular.</p><div id="statsBody">${statsHTML()}</div></div>`);
 }
 function askResetStats(){
-  confirmModal('¿Borrar tus récords?','Se borran las partidas anotadas en este celular. No se puede deshacer.','Borrar',()=>{Stats.reset();toast('Récords borrados.')},true);
+  confirmModal('¿Borrar tus récords?','Se borran las partidas anotadas y los logros de este celular. No se puede deshacer.','Borrar',()=>{Stats.reset();store.del('logros');toast('Récords borrados.')},true);
 }
 // Detalle de un jugador: se abre tocando su nombre en la planilla.
 function openPlayer(p){
@@ -2891,7 +2952,7 @@ if(hot&&typeof hot.ready==='function')hot.ready(start);
 else start((hot&&hot.data)||{});
 
 // ganchos para pruebas
-window.__G={Voice,canUndo,Stats,statEntry,Look,fidFromId,FID_RE,CUBE_END,REACTS,showReaction,sendReact,canReact,repeatedIn,pointsOf,partsOf,standing,sheetHTML,catComplete,winnersNow,seriesTotals,alertTurn,botPlan,botIs,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
+window.__G={MEDALS,loadMedals,Voice,canUndo,Stats,statEntry,Look,fidFromId,FID_RE,CUBE_END,REACTS,showReaction,sendReact,canReact,repeatedIn,pointsOf,partsOf,standing,sheetHTML,catComplete,winnersNow,seriesTotals,alertTurn,botPlan,botIs,Sound,loadLocal:(g)=>{ui.mode='local';G=null;setGame(g)},MAX_PLAYERS,potentials,isEsc,isFull,isPoker,isGenerala,comboName,actRoll,actScore,actRemove,newGameDoc,merge,total,filled,CATS,
   state:()=>({G,me:{pid:me.pid,name:me.name},screen:ui.screen,mode:ui.mode,selected:ui.selected,spectator:ui.spectator,net:{status:Net.status,code:Net.code,canWrite:Net.canWrite,players:Net.players,cuts:Net.cuts,reacts:Net.reacts},
     friends:{fid:Fr.fid,list:Fr.friends.map(f=>({id:f.id,name:f.name})),hellos:Fr.hellos.slice(),invited:Object.assign({},Fr.invited),
       notices:Fr.notices.map(n=>({kind:n.kind,from:n.from,name:n.name,room:n.room||null})),inbox:Object.keys(Net.inbox)}})};
