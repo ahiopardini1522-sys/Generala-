@@ -370,6 +370,14 @@ h1,h2,h3{text-wrap:balance;font-weight:400}
 #confetti{position:fixed;inset:0;z-index:40;pointer-events:none;overflow:hidden}
 #confetti i{position:absolute;top:-14px;width:9px;height:14px;border-radius:2px;background:var(--c);opacity:.95;animation:confall var(--t,1.8s) cubic-bezier(.3,.6,.6,1) var(--dl,0s) forwards}
 @keyframes confall{to{transform:translate(var(--dx,0),105vh) rotate(var(--rot,540deg));opacity:.9}}
+/* reloj de turno y mensajes rápidos */
+.turnbar .clk{white-space:nowrap;font-size:15px;font-weight:700;color:rgba(243,235,214,.85);font-variant-numeric:tabular-nums;margin-left:auto}
+.turnbar .clk:not([hidden])+.rt{margin-left:0}
+.turnbar .clk.low{color:#ff8a7c}
+.rtray{flex-wrap:wrap;width:300px;max-width:calc(100vw - 16px)}
+.rtray .rmsgs{flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px;padding:5px 2px 2px}
+.rtray .rmsgs button{width:auto;height:38px;padding:0 11px;font-size:15px;font-weight:700;color:var(--papel);background:rgba(243,235,214,.12)}
+.rb .re.txt{font-size:19px;font-weight:800;line-height:1.15;padding:9px 15px;border-radius:16px;background:var(--papel);color:var(--carbon);filter:none;box-shadow:0 6px 16px rgba(0,0,0,.45);white-space:nowrap}
 /* mensajes de voz */
 #btnVoice.rec{background:var(--marcador);color:#fff;animation:recpulse 1s ease-in-out infinite}
 #btnVoice[disabled]{opacity:.45}
@@ -530,7 +538,7 @@ function actScore(g,k){
   const pot=potentials(g.dice||[],g.roll||0,sh,g.opts||{});
   if(pot[k]===undefined)return null;
   const v=pot[k];
-  const patch={sheets:{[p]:{[k]:v}},roll:0,dice:[],held:NO_HOLD(),evt:{n:((g.evt&&g.evt.n)||0)+1,pid:p,k,v}};
+  const patch={sheets:{[p]:{[k]:v}},roll:0,dice:[],held:NO_HOLD(),evt:{n:((g.evt&&g.evt.n)||0)+1,pid:p,k,v,u:null,t:null}};
   const g2=merge(g,patch);
   if(allDone(g2)){patch.status='finished';patch.winners=winnersOf(g2);patch.endReason='full';if(g.undo)patch.undo=null}
   else{
@@ -852,6 +860,8 @@ const ICON={
   smile:'<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.2 14.2a4.6 4.6 0 0 0 7.6 0"/><path d="M9 9.6h.01M15 9.6h.01" stroke-width="3"/></svg>',
   copy:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/></svg>'
 };
+const MSGS=['¡Qué suerte!','¡Buena!','¡Uh, no!','¡Dale, tirá!','Ya vuelvo','¡Gracias!'];
+const isReact=e=>REACTS.some(r=>r.e===e)||MSGS.includes(e);
 const REACTS=[{e:'👏',t:'Aplauso'},{e:'😂',t:'Risa'},{e:'😮',t:'Sorpresa'},{e:'😡',t:'Bronca'},{e:'⏰',t:'Apurar'},{e:'🧉',t:'Mate'}];
 const FACE_PIPS={1:[[2,2]],2:[[1,1],[3,3]],3:[[1,1],[2,2],[3,3]],4:[[1,1],[1,3],[3,1],[3,3]],5:[[1,1],[1,3],[2,2],[3,1],[3,3]],6:[[1,1],[1,3],[2,1],[2,3],[3,1],[3,3]]};
 // giro del cubo que deja la cara v mirando al frente (grados en X y en Y)
@@ -1146,10 +1156,10 @@ function updateLobby(){
   $('#plCount').textContent=ps.length?`(${ps.length})`:'';
   setHtml($('#plList'),ps.length?ps.map((p,i)=>`<li style="--pc:${COLORS[i%6]}"><i class="dot"></i><span class="pn">${esc(p.name)}</span>${p.id===host?`<span class="tag">${ICON.crown} Anfitrión</span>`:''}${p.id===me.pid?'<span class="tag">Vos</span>':''}${i>=MAX_PLAYERS?'<span class="tag">Sin lugar</span>':''}${friendTag(p)}</li>`).join(''):'<li class="empty">Esperando jugadores…</li>');
   setHtml($('#lobbyFriends'),lobbyFriendsHTML());
-  const win=!(g.opts&&g.opts.servida==='60');
+  const win=!(g.opts&&g.opts.servida==='60'),tmr=timerOf(g);
   setHtml($('#lobbyOpts'),'<h2 class="h2">Generala servida</h2>'+(isHost
-    ?`<div class="seg" role="group" aria-label="Generala servida"><button class="${win?'on':''}" data-act="opt" data-v="win" aria-pressed="${win}">Gana la partida</button><button class="${win?'':'on'}" data-act="opt" data-v="60" aria-pressed="${!win}">Vale 60 puntos</button></div><p class="note" style="margin-top:10px">Se sortea el orden de juego. Hasta ${MAX_PLAYERS} jugadores.</p>`
-    :`<p class="note">${win?'Gana la partida':'Vale 60 puntos'}. Lo elige el anfitrión.</p>`));
+    ?`<div class="seg" role="group" aria-label="Generala servida"><button class="${win?'on':''}" data-act="opt" data-v="win" aria-pressed="${win}">Gana la partida</button><button class="${win?'':'on'}" data-act="opt" data-v="60" aria-pressed="${!win}">Vale 60 puntos</button></div><h2 class="h2" style="margin-top:14px">Tiempo por turno</h2><div class="seg" id="timerSeg" role="group" aria-label="Tiempo por turno">${[[0,'Sin límite'],[45,'45 s'],[90,'90 s']].map(x=>`<button class="${tmr===x[0]?'on':''}" data-act="opt-timer" data-v="${x[0]}" aria-pressed="${tmr===x[0]}">${x[1]}</button>`).join('')}</div><p class="note" style="margin-top:10px">${tmr?'Si se acaba el tiempo, el juego tira y anota solo por ese jugador. ':''}Se sortea el orden de juego. Hasta ${MAX_PLAYERS} jugadores.</p>`
+    :`<p class="note">${win?'Gana la partida':'Vale 60 puntos'}. ${tmr?`Tiempo por turno: ${tmr} segundos. `:''}Lo elige el anfitrión.</p>`));
   const hostName=(ps.find(p=>p.id===host)||{}).name||'el anfitrión';
   setHtml($('#lobbyAction'),isHost
     ?`<button class="btn primary" style="width:100%" data-act="start-online" ${ps.length<1?'disabled':''}>Empezar partida</button>`
@@ -1168,9 +1178,9 @@ function mountGame(){
       <button class="icon" id="btnSound" data-act="sound"></button>
       <button class="icon" id="btnHelp" data-act="rules" aria-label="Cómo se juega">${ICON.help}</button>
       <button class="icon" id="btnVoice" data-act="voice" aria-label="Mandar un mensaje de voz" aria-pressed="false" hidden>${ICON.mic}</button>
-      <div class="rtray" id="rtray" role="group" aria-label="Reacciones" hidden>${REACTS.map(r=>`<button data-act="react" data-e="${r.e}" aria-label="${r.t}">${r.e}</button>`).join('')}</div>
+      <div class="rtray" id="rtray" role="group" aria-label="Reacciones" hidden>${REACTS.map(r=>`<button data-act="react" data-e="${r.e}" aria-label="${r.t}">${r.e}</button>`).join('')}<div class="rmsgs">${MSGS.map(m=>`<button data-act="react" data-e="${m}">${m}</button>`).join('')}</div></div>
     </div>
-    <div class="turnbar" aria-live="polite"><i class="dot" id="turnDot"></i><span id="turnText"></span><span class="rt" id="rollText"></span></div>
+    <div class="turnbar" aria-live="polite"><i class="dot" id="turnDot"></i><span id="turnText"></span><span class="clk" id="clock" aria-hidden="true" hidden></span><span class="rt" id="rollText"></span></div>
     <div class="sheetwrap" id="sheetwrap"><table class="sheet" id="sheet"></table></div>
     <div class="tray">
       <div class="dice" id="dice">${[0,1,2,3,4].map(i=>`<button class="die empty" data-act="hold" data-i="${i}" data-v="0" aria-pressed="false" aria-label="Dado ${i+1}, sin tirar">${DIE_INNER}</button>`).join('')}</div>
@@ -1505,7 +1515,8 @@ function evtText(g){
   if(e.u)return `${nameOf(e.pid)} deshizo su última jugada`;
   if(!c)return '';
   const n=nameOf(e.pid);
-  return e.v>0?`${n} anotó ${e.v} en ${c.n}`:`${n} tachó ${c.n}`;
+  const tl=e.t?' (se le acabó el tiempo)':'';
+  return (e.v>0?`${n} anotó ${e.v} en ${c.n}`:`${n} tachó ${c.n}`)+tl;
 }
 function afterGameChange(prev){
   const g=G;
@@ -1596,7 +1607,7 @@ function showReaction(p,e){
   while(layer.children.length>=8)layer.firstChild.remove();
   const b=document.createElement('div');
   b.className='rb';b.style.setProperty('--x',x+'%');b.style.setProperty('--pc',COLORS[i%6]);
-  const em=document.createElement('span');em.className='re';em.textContent=e;
+  const em=document.createElement('span');em.className=MSGS.includes(e)?'re txt':'re';em.textContent=e;
   const nm=document.createElement('span');nm.className='rn';
   const dot=document.createElement('i'),tx=document.createElement('span');tx.textContent=nameOf(p);
   nm.append(dot,tx);b.append(em,nm);layer.append(b);
@@ -1605,7 +1616,7 @@ function showReaction(p,e){
   if(live)live.textContent=nameOf(p)+': '+((REACTS.find(r=>r.e===e)||{}).t||e);
 }
 function sendReact(e){
-  if(!canReact()||!REACTS.some(r=>r.e===e)||!Net.db||!Net.code)return;
+  if(!canReact()||!isReact(e)||!Net.db||!Net.code)return;
   const now=Date.now();
   if(now<ui.reactUntil)return;
   ui.reactUntil=now+1500;
@@ -1641,7 +1652,7 @@ function handleReacts(m){
     if(s&&s.g===r.g&&r.n<=s.n)return;
     ui.seenReacts[p]={g:r.g,n:r.n};
     if(Date.now()<Net.reactsQuiet||r.g!==(g.n||0))return;
-    if(p===me.pid||!REACTS.some(x=>x.e===r.e)||!(g.order||[]).includes(p))return;
+    if(p===me.pid||!isReact(r.e)||!(g.order||[]).includes(p))return;
     if(Date.now()<ui.reactQuiet)return;      // recién volvió a la app: lo viejo no se repite
     if(shown++>=3)return;
     showReaction(p,r.e);
@@ -1781,6 +1792,41 @@ function askLeave(){
 function doLeave(){
   if(ui.mode==='local'){store.del('local');G=null;ui.mode=null;goHome()}
   else leaveRoom();
+}
+
+/* ================= reloj de turno (online, opcional) ================= */
+// Cada celular cuenta desde que ve empezar el turno. Si se acaba el tiempo, el juego tira (si no tiró) y anota lo mejor
+// que haya: primero lo hace el celular de quien tiene el turno; si no está, el del jugador que sigue, unos segundos después.
+function timerOf(g){const t=g&&g.opts?+g.opts.timer:0;return t===45||t===90?t:0}
+function turnLimit(g){return g&&ui.mode==='online'&&g.status==='playing'&&timerOf(g)?(window.__TIMER||timerOf(g)):0}
+function turnTick(){
+  const el=$('#clock'),g=G,lim=ui.screen==='game'?turnLimit(g):0;
+  if(!lim){if(el&&!el.hidden)el.hidden=true;ui.turnKey=null;return}
+  const act=activePid(),key=g.n+':'+g.turn+':'+filled(sheetOf(g,act));
+  if(key!==ui.turnKey){ui.turnKey=key;ui.turnAt=Date.now();ui.turnWarned=false}
+  const gone=(Date.now()-ui.turnAt)/1000,left=Math.max(0,Math.ceil(lim-gone));
+  if(el){el.hidden=false;el.textContent='⏱ '+Math.floor(left/60)+':'+String(left%60).padStart(2,'0');el.classList.toggle('low',left<=10)}
+  const inGame=!ui.spectator&&g.order.includes(me.pid)&&!isGone(g,me.pid),mine=inGame&&act===me.pid;
+  if(mine&&left<=10&&left>0&&lim>10&&!ui.turnWarned){ui.turnWarned=true;toast('Te quedan 10 segundos.',2400);Sound.turn()}
+  if(gone<lim||!inGame)return;
+  let ok=mine;
+  if(!ok){const al=alive(g),rank=((al.indexOf(me.pid)-al.indexOf(act))+al.length)%al.length;ok=rank>0&&gone>=lim+(window.__TIMER?2:8)*rank}
+  if(ok)autoPlay();
+}
+function autoPlay(){
+  if(Date.now()-(ui.autoAt||0)<1600)return;
+  ui.autoAt=Date.now();
+  const g=G,p=activePid();
+  let patch;
+  if((g.roll||0)===0)patch=actRoll(g,null);
+  else{
+    const d=botPlan(g.dice,3,sheetOf(g,p),g.opts||{},'normal');
+    patch=d&&d.k?actScore(g,d.k):null;
+    if(patch&&patch.evt)patch.evt.t=1;
+  }
+  if(!patch)return;
+  ui.selected=null;ui.heldDirty=false;clearTimeout(ui.heldTimer);
+  sendPatch(patch);
 }
 
 /* ================= mensajes de voz (walkie-talkie) ================= */
@@ -2720,6 +2766,7 @@ const ACT={
   'start-local'(){startLocal()},
   'resume-local'(){resumeLocal()},
   opt(el){if(G&&G.status==='lobby'&&G.hostId===me.pid)sendPatch({opts:{servida:el.dataset.v}})},
+  'opt-timer'(el){const v=+el.dataset.v;if(G&&G.status==='lobby'&&G.hostId===me.pid&&[0,45,90].includes(v))sendPatch({opts:{timer:v}})},
   'start-online'(){startOnline()},
   copy(){copyCode()},
   share(){shareRoom()},
@@ -2828,6 +2875,7 @@ window.addEventListener('hashchange',()=>{
 function start(data){
   data=data||{};
   loadLook();
+  setInterval(turnTick,500);
   if(data.name&&!ui.name)ui.name=data.name;
   if(data.local&&Array.isArray(data.local.order)&&data.local.names){
     ui.mode='local';setGame(data.local);
